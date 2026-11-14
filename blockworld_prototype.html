@@ -1,0 +1,4227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>BlockWorld — Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#8ec9ff;
+    --sky-bottom:#d9c7ff;
+    --panel:#20233a;
+    --panel-soft:#2b2f4a;
+    --ink:#f4f2ff;
+    --ink-dim:#b7b6d9;
+    --coral:#ff6f61;
+    --gold:#ffd23f;
+    --mint:#5fd9a4;
+    --line:rgba(255,255,255,0.08);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;font-family:'Nunito',sans-serif;background:#0d0e1a;}
+  #canvas-wrap{position:fixed;inset:0;}
+  canvas{display:block; touch-action:none;}
+
+  #videosWrap {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; z-index: 10; pointer-events: none;
+  }
+  #videosWrap video {
+    width: 140px; height: 100px; background: rgba(0,0,0,0.5);
+    border: 2px solid var(--line); border-radius: 12px; object-fit: cover;
+    pointer-events: auto;
+  }
+
+
+  .hud{position:fixed; z-index:10; pointer-events:none; font-family:'Nunito',sans-serif;}
+  .hud *{pointer-events:auto;}
+
+  /* Top bar */
+  #topbar{top:14px; left:14px; right:14px; display:flex; justify-content:space-between; align-items:flex-start;}
+  #logo{
+    font-family:'Baloo 2',sans-serif; font-weight:800; font-size:20px; color:var(--ink);
+    background:var(--panel); padding:8px 16px; border-radius:14px; border:2px solid var(--line);
+    box-shadow:0 6px 0 rgba(0,0,0,0.25); letter-spacing:0.5px;
+  }
+  #logo span{color:var(--gold);}
+  #stats{display:flex; gap:10px;}
+  .pill{
+    background:var(--panel); border:2px solid var(--line); border-radius:14px;
+    padding:8px 14px; display:flex; align-items:center; gap:8px; color:var(--ink);
+    font-weight:700; box-shadow:0 6px 0 rgba(0,0,0,0.25); font-size:15px;
+  }
+  .pill .dot{width:10px;height:10px;border-radius:50%;}
+  #coinPill .dot{background:var(--gold); box-shadow:0 0 8px var(--gold);}
+  #gemPill .dot{background:var(--mint); box-shadow:0 0 8px var(--mint);}
+  #playersPill .dot{background:var(--coral); box-shadow:0 0 8px var(--coral);}
+
+  /* Right action stack */
+  #actions{position:fixed; top:70px; right:14px; display:flex; flex-direction:column; gap:10px; z-index:10;}
+  .action-btn{
+    width:52px;height:52px;border-radius:16px; border:2px solid var(--line); background:var(--panel);
+    color:var(--ink); font-size:22px; display:flex; align-items:center; justify-content:center;
+    cursor:pointer; box-shadow:0 6px 0 rgba(0,0,0,0.25); transition:transform .08s;
+  }
+  .action-btn:active{transform:translateY(4px); box-shadow:0 2px 0 rgba(0,0,0,0.25);}
+
+  /* Chat */
+  #chatWrap{position:fixed; left:14px; bottom:14px; width:320px; max-width:44vw; z-index:10; display:flex; flex-direction:column;}
+  #chatLog{
+    background:rgba(32,35,58,0.72); backdrop-filter:blur(4px); border-radius:14px; border:2px solid var(--line);
+    padding:10px 12px; max-height:160px; overflow-y:auto; margin-bottom:8px; display:flex; flex-direction:column; gap:5px;
+  }
+  #chatLog::-webkit-scrollbar{width:5px;} #chatLog::-webkit-scrollbar-thumb{background:#454a6e;border-radius:4px;}
+  .chatLine{font-size:13px; color:var(--ink-dim); line-height:1.4;}
+  .chatLine b{color:var(--gold); font-weight:700;}
+  #chatInputRow{display:flex; gap:8px;}
+  #chatInput{
+    flex:1; border:2px solid var(--line); background:var(--panel); color:var(--ink); border-radius:12px;
+    padding:10px 12px; font-size:14px; font-family:'Nunito',sans-serif; outline:none;
+  }
+  #chatInput:focus{border-color:var(--coral);}
+  #chatSend{
+    background:var(--coral); border:none; color:white; font-weight:700; border-radius:12px; padding:0 16px;
+    cursor:pointer; box-shadow:0 4px 0 rgba(0,0,0,0.2);
+  }
+
+  /* Modal (shop) */
+  #modalOverlay{position:fixed; inset:0; background:rgba(10,10,20,0.55); z-index:20; display:none; align-items:center; justify-content:center;}
+  #shopPanel{
+    width:420px; max-width:90vw; background:var(--panel); border-radius:20px; border:2px solid var(--line);
+    padding:20px; box-shadow:0 20px 50px rgba(0,0,0,0.4);
+  }
+  #shopPanel h2{font-family:'Baloo 2'; margin:0 0 4px; color:var(--ink); font-size:22px;}
+  #shopPanel p{margin:0 0 16px; color:var(--ink-dim); font-size:13px;}
+  #skinGrid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px;}
+  .skinCard{
+    background:var(--panel-soft); border-radius:14px; padding:10px; text-align:center; cursor:pointer;
+    border:2px solid transparent; transition:border-color .15s;
+  }
+  .skinCard.owned{border-color:var(--mint);}
+  .skinCard.selected{border-color:var(--gold);}
+  .swatch{width:100%; aspect-ratio:1; border-radius:10px; margin-bottom:6px;}
+  .skinCard .price{font-size:12px; color:var(--ink-dim); font-weight:700;}
+  #closeShop{
+    width:100%; padding:12px; border-radius:12px; border:none; background:var(--coral); color:white;
+    font-weight:700; font-size:15px; cursor:pointer;
+  }
+
+  /* Mobile controls */
+  #joystickZone{position:fixed; left:0; bottom:0; width:45vw; height:45vh; z-index:10; display:none;}
+  #joyBase{position:absolute; width:100px; height:100px; border-radius:50%; background:rgba(255,255,255,0.12); border:2px solid rgba(255,255,255,0.25);}
+  #joyStick{position:absolute; width:46px; height:46px; border-radius:50%; background:rgba(255,255,255,0.55);}
+  #lookZone{position:fixed; right:0; bottom:0; width:55vw; height:55vh; z-index:9; display:none;}
+  #jumpBtnMobile{position:fixed; right:20px; bottom:20px; z-index:11; display:none;}
+
+  #hint{position:fixed; bottom:14px; right:14px; z-index:10; color:var(--ink-dim); font-size:12px; text-align:right; max-width:220px; background:rgba(32,35,58,0.5); padding:8px 10px; border-radius:10px;}
+  #footNote{position:fixed; top:70px; left:14px; z-index:9; max-width:260px; font-size:11.5px; color:var(--ink-dim); background:rgba(32,35,58,0.5); padding:8px 10px; border-radius:10px; line-height:1.4; display:none;}
+
+  /* Login screen */
+  #loginOverlay{
+    position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 50% 20%, #3a4a7a 0%, #14162a 75%);
+  }
+  #loginPanel{
+    width:400px; max-width:90vw; background:var(--panel); border-radius:22px; border:2px solid var(--line);
+    padding:26px; box-shadow:0 24px 60px rgba(0,0,0,0.5);
+  }
+  #loginPanel h1{font-family:'Baloo 2'; font-size:28px; margin:0 0 4px; color:var(--ink);}
+  #loginPanel h1 span{color:var(--gold);}
+  #loginPanel .sub{color:var(--ink-dim); font-size:13px; margin:0 0 20px;}
+  #loginPanel label{display:block; font-size:12px; font-weight:700; color:var(--ink-dim); margin:14px 0 6px; text-transform:uppercase; letter-spacing:0.5px;}
+  #loginPanel input{
+    width:100%; border:2px solid var(--line); background:var(--panel-soft); color:var(--ink); border-radius:12px;
+    padding:11px 13px; font-size:14px; font-family:'Nunito',sans-serif; outline:none;
+  }
+  #loginPanel input:focus{border-color:var(--coral);}
+  #avatarRow{display:flex; gap:10px;}
+  .avatarSwatch{
+    width:44px;height:44px;border-radius:50%; cursor:pointer; border:3px solid transparent; box-shadow:0 4px 0 rgba(0,0,0,0.2);
+  }
+  .avatarSwatch.picked{border-color:var(--gold); transform:translateY(-2px);}
+  #playBtn{
+    width:100%; margin-top:22px; padding:14px; border-radius:14px; border:none; background:var(--coral); color:white;
+    font-weight:800; font-size:16px; font-family:'Baloo 2'; cursor:pointer; box-shadow:0 6px 0 rgba(0,0,0,0.25);
+  }
+  #playBtn:active{transform:translateY(4px); box-shadow:0 2px 0 rgba(0,0,0,0.25);}
+  #connStatus{margin-top:10px; font-size:12px; color:var(--ink-dim); min-height:16px;}
+  #serverHint{font-size:11px; color:var(--ink-dim); margin-top:4px; line-height:1.4;}
+
+  @media (max-width:760px){
+    #joystickZone,#lookZone{display:block;}
+    #jumpBtnMobile{display:flex;}
+    #hint{display:none;}
+    #chatWrap{max-width:60vw;}
+  }
+
+  /* =======================================================
+     100-LEVEL PROGRESSION & REWARD SYSTEM (THEME STYLES)
+     ======================================================= */
+  :root {
+    --gold-glow: 0 0 16px rgba(255, 210, 63, 0.6);
+    --cyan-glow: 0 0 16px rgba(0, 212, 255, 0.6);
+    --blue-panel: linear-gradient(135deg, rgba(20, 28, 66, 0.95), rgba(12, 17, 44, 0.95));
+    --card-border: 1.5px solid rgba(130, 160, 255, 0.25);
+  }
+
+  /* Full Screen Progression Dashboard (Matches User UI Screenshot) */
+  #progressionDashboard {
+    position: fixed; inset: 0; z-index: 40;
+    display: flex; flex-direction: column; justify-content: space-between;
+    background: radial-gradient(circle at 50% 15%, #182657 0%, #0a0d20 85%);
+    color: var(--ink); padding: 14px 18px; box-sizing: border-box;
+    backdrop-filter: blur(8px); overflow-y: auto; overflow-x: hidden;
+    user-select: none;
+  }
+
+  /* Top Bar */
+  .prog-topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--blue-panel); border: var(--card-border);
+    border-radius: 18px; padding: 8px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    flex-wrap: wrap; gap: 10px;
+  }
+  .prog-profile {
+    display: flex; align-items: center; gap: 12px; cursor: pointer;
+  }
+  .prog-avatar-frame {
+    width: 48px; height: 48px; border-radius: 50%; border: 2.5px solid var(--gold);
+    box-shadow: var(--gold-glow); overflow: hidden; background: #252b48;
+    display: flex; align-items: center; justify-content: center; font-size: 24px;
+  }
+  .prog-profile-info { display: flex; flex-direction: column; gap: 3px; }
+  .prog-name { font-weight: 800; font-size: 15px; color: #fff; letter-spacing: 0.3px; }
+  .prog-level-badge {
+    display: inline-flex; align-items: center; gap: 4px; background: linear-gradient(90deg, #f59e0b, #d97706);
+    color: #fff; font-size: 11.5px; font-weight: 800; padding: 2px 8px; border-radius: 10px;
+  }
+  .prog-xp-bar {
+    width: 110px; height: 6px; background: rgba(255,255,255,0.15); border-radius: 4px; overflow: hidden;
+  }
+  .prog-xp-fill { width: 45%; height: 100%; background: #4ade80; border-radius: 4px; transition: width .3s; }
+
+  /* Currencies */
+  .prog-currencies { display: flex; gap: 10px; align-items: center; }
+  .prog-curr-pill {
+    background: rgba(14, 20, 50, 0.85); border: 1.5px solid rgba(255,255,255,0.15);
+    border-radius: 14px; padding: 6px 12px; display: flex; align-items: center; gap: 8px;
+    font-size: 14px; font-weight: 800; color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  }
+  .prog-curr-pill .add-btn {
+    width: 20px; height: 20px; border-radius: 50%; background: rgba(255,255,255,0.2);
+    display: flex; align-items: center; justify-content: center; font-size: 13px; cursor: pointer;
+  }
+  .prog-curr-pill .add-btn:hover { background: var(--gold); color: #000; }
+
+  /* Top Right Action Icons */
+  .prog-top-actions { display: flex; gap: 8px; align-items: center; }
+  .prog-icon-btn {
+    background: var(--blue-panel); border: var(--card-border); border-radius: 14px;
+    padding: 8px 12px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    cursor: pointer; color: #fff; font-size: 18px; transition: all .15s; position: relative;
+  }
+  .prog-icon-btn span { font-size: 10px; font-weight: 700; color: var(--ink-dim); }
+  .prog-icon-btn:hover { transform: translateY(-2px); border-color: var(--gold); }
+  .prog-badge-dot {
+    position: absolute; top: -3px; right: -3px; width: 10px; height: 10px;
+    background: #ff3b30; border-radius: 50%; box-shadow: 0 0 8px #ff3b30; animation: pulse 1.5s infinite;
+  }
+
+  /* Main Center Area (Nav + Mission Card + Level 100 Showcase) */
+  .prog-main-container {
+    display: flex; gap: 14px; align-items: stretch; margin: 12px 0; min-height: 380px; flex: 1;
+  }
+
+  /* Left Navigation Bar */
+  .prog-left-nav {
+    width: 90px; background: var(--blue-panel); border: var(--card-border);
+    border-radius: 18px; padding: 10px 6px; display: flex; flex-direction: column;
+    gap: 8px; justify-content: space-around;
+  }
+  .prog-nav-item {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px; padding: 10px 4px; border-radius: 14px; cursor: pointer; color: var(--ink-dim);
+    transition: all .15s; font-size: 11.5px; font-weight: 700;
+  }
+  .prog-nav-item .nav-icon { font-size: 22px; }
+  .prog-nav-item:hover, .prog-nav-item.active {
+    background: linear-gradient(135deg, #ffd23f, #f59e0b); color: #1c1402;
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.4); transform: translateY(-2px);
+  }
+
+  /* Center Mission Card */
+  .prog-mission-card {
+    flex: 2; background: linear-gradient(145deg, #182252, #101538);
+    border: 2px solid #3b5299; border-radius: 22px; padding: 18px 22px;
+    box-shadow: 0 12px 35px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15);
+    display: flex; flex-direction: column; justify-content: space-between; position: relative;
+    overflow: hidden;
+  }
+  .prog-mission-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+  }
+  .prog-level-banner {
+    display: flex; align-items: center; gap: 8px;
+    background: linear-gradient(90deg, #ffb703, #fb8500); padding: 6px 18px;
+    border-radius: 20px; font-size: 18px; font-weight: 800; color: #fff;
+    box-shadow: 0 4px 12px rgba(251, 133, 0, 0.4); text-transform: uppercase;
+  }
+  .prog-mission-title {
+    font-size: 20px; font-weight: 800; color: #fff; margin: 10px 0 4px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .prog-mission-desc {
+    color: #b8c4ea; font-size: 13.5px; line-height: 1.4; margin-bottom: 12px;
+  }
+
+  /* Mission Progress Bar */
+  .prog-task-meter {
+    background: rgba(10, 14, 36, 0.85); border-radius: 14px; padding: 10px 14px;
+    border: 1px solid rgba(255,255,255,0.1); margin-bottom: 14px;
+  }
+  .prog-meter-header {
+    display: flex; justify-content: space-between; font-size: 13px; font-weight: 800;
+    color: #e2e8f0; margin-bottom: 6px;
+  }
+  .prog-bar-track {
+    width: 100%; height: 16px; background: #1a2244; border-radius: 8px;
+    overflow: hidden; position: relative; border: 1px solid rgba(255,255,255,0.08);
+  }
+  .prog-bar-fill {
+    height: 100%; background: linear-gradient(90deg, #10b981, #34d399);
+    border-radius: 8px; transition: width .4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 12px rgba(52, 211, 153, 0.6);
+  }
+  .prog-timer {
+    display: flex; align-items: center; gap: 6px; color: #f87171;
+    font-size: 13px; font-weight: 800; margin-top: 6px;
+  }
+
+  /* Rewards & Next Unlock row */
+  .prog-rewards-row {
+    display: flex; gap: 12px; margin-bottom: 14px;
+  }
+  .prog-reward-box {
+    flex: 1; background: rgba(14, 20, 52, 0.85); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .prog-reward-title {
+    font-size: 11.5px; font-weight: 800; color: #a5b4fc; text-transform: uppercase;
+  }
+  .prog-reward-items {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .prog-reward-item {
+    display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.06);
+    padding: 6px 10px; border-radius: 10px; font-size: 13px; font-weight: 700;
+  }
+
+  /* Big Start/Action Button */
+  .prog-start-btn {
+    width: 100%; padding: 14px; border: none; border-radius: 16px;
+    background: linear-gradient(90deg, #f59e0b, #ef4444); color: #fff;
+    font-size: 18px; font-weight: 800; font-family:'Baloo 2', sans-serif;
+    cursor: pointer; box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    letter-spacing: 0.5px; transition: all .15s;
+  }
+  .prog-start-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(239, 68, 68, 0.6); }
+  .prog-start-btn:active { transform: translateY(2px); }
+
+  /* Right Level 100 Showcase Card */
+  .prog-champion-card {
+    flex: 1.1; background: linear-gradient(160deg, #311d04 0%, #15102a 65%, #25123d 100%);
+    border: 2px solid #f59e0b; border-radius: 22px; padding: 16px;
+    box-shadow: 0 12px 35px rgba(245, 158, 11, 0.25); display: flex; flex-direction: column;
+    align-items: center; justify-content: space-between; text-align: center; position: relative;
+  }
+  .prog-crown-crest {
+    display: flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 800;
+    color: #fbbf24; text-transform: uppercase; margin-bottom: 4px;
+  }
+  .prog-champion-preview {
+    width: 120px; height: 140px; position: relative; margin: 4px 0;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .prog-champion-avatar {
+    width: 90px; height: 90px; border-radius: 50%; border: 3px solid #fbbf24;
+    box-shadow: 0 0 25px rgba(251, 191, 36, 0.6); background: radial-gradient(circle, #ffeaa7, #d63031);
+    display: flex; align-items: center; justify-content: center; font-size: 48px;
+    animation: floatAnim 3s ease-in-out infinite;
+  }
+  .prog-wings {
+    position: absolute; font-size: 80px; opacity: 0.85; filter: drop-shadow(0 0 12px #f59e0b);
+  }
+  .prog-champion-badge {
+    background: linear-gradient(90deg, #7c3aed, #ec4899); color: #fff;
+    font-size: 12px; font-weight: 800; padding: 4px 12px; border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.5); margin: 6px 0 2px;
+  }
+  .prog-champion-sub {
+    font-size: 11px; color: #e9d5ff; font-weight: 700;
+  }
+  .prog-trophy-btn {
+    width: 100%; padding: 8px; border-radius: 12px; border: 1.5px solid #fbbf24;
+    background: rgba(251, 191, 36, 0.15); color: #fbbf24; font-size: 12px;
+    font-weight: 800; cursor: pointer; transition: all .15s; margin-top: 6px;
+  }
+  .prog-trophy-btn:hover { background: #fbbf24; color: #1c1402; }
+
+  /* Bottom Roadmap (100 Level Trail) */
+  .prog-roadmap-wrap {
+    background: var(--blue-panel); border: var(--card-border); border-radius: 20px;
+    padding: 12px 16px; margin-top: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .prog-roadmap-track {
+    display: flex; align-items: center; gap: 14px; overflow-x: auto; padding: 8px 6px;
+    scroll-behavior: smooth;
+  }
+  .prog-roadmap-track::-webkit-scrollbar { height: 6px; }
+  .prog-roadmap-track::-webkit-scrollbar-thumb { background: #3b426f; border-radius: 4px; }
+  
+  .prog-node {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    flex-shrink: 0; position: relative; cursor: pointer; transition: all .15s;
+  }
+  .prog-node-circle {
+    width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 14px; font-weight: 800; border: 2.5px solid transparent;
+    transition: all .2s;
+  }
+  .prog-node.completed .prog-node-circle {
+    background: #10b981; border-color: #34d399; color: #fff;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+  }
+  .prog-node.current .prog-node-circle {
+    background: linear-gradient(135deg, #f59e0b, #ef4444); border-color: #ffd23f;
+    color: #fff; box-shadow: 0 0 16px rgba(245, 158, 11, 0.8);
+    transform: scale(1.15); animation: pulse 1.5s infinite;
+  }
+  .prog-node.current .current-tag {
+    position: absolute; top: -18px; background: #ffd23f; color: #1c1402;
+    font-size: 9.5px; font-weight: 800; padding: 1px 6px; border-radius: 8px;
+  }
+  .prog-node.locked .prog-node-circle {
+    background: #1c223c; border-color: #313859; color: #64748b;
+  }
+  .prog-node.milestone .prog-node-circle {
+    width: 52px; height: 52px; background: linear-gradient(135deg, #7c3aed, #d946ef);
+    border-color: #ffd23f; font-size: 20px; box-shadow: 0 0 15px rgba(217, 70, 239, 0.5);
+  }
+  .prog-node-label { font-size: 11px; font-weight: 700; color: #94a3b8; }
+  .prog-node-connector {
+    width: 20px; height: 4px; background: #313859; flex-shrink: 0; border-radius: 2px;
+  }
+  .prog-node-connector.active { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
+
+  /* Bottom Stats Bar */
+  .prog-bottom-stats {
+    display: flex; justify-content: space-between; align-items: center;
+    background: rgba(14, 20, 50, 0.9); border-radius: 14px; padding: 8px 16px;
+    margin-top: 8px; font-size: 13px; font-weight: 700; flex-wrap: wrap; gap: 10px;
+  }
+  .prog-powers-quickbar {
+    display: flex; gap: 8px; align-items: center;
+  }
+  .prog-power-item {
+    background: rgba(30, 41, 80, 0.8); border: 1.5px solid rgba(255,255,255,0.15);
+    border-radius: 10px; padding: 4px 10px; display: flex; align-items: center; gap: 6px;
+    font-size: 12px; cursor: pointer; transition: all .15s;
+  }
+  .prog-power-item:hover { border-color: var(--gold); background: rgba(255, 210, 63, 0.2); }
+
+  /* In-Game Floating HUD (During 3D Gameplay) */
+  #ingameMissionHUD {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    background: rgba(16, 22, 54, 0.9); border: 1.5px solid rgba(130, 160, 255, 0.35);
+    border-radius: 16px; padding: 8px 16px; z-index: 25; display: flex;
+    align-items: center; gap: 14px; box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+    backdrop-filter: blur(6px); color: #fff; pointer-events: auto;
+  }
+  .hud-task-info { display: flex; flex-direction: column; gap: 2px; }
+  .hud-task-title { font-size: 13.5px; font-weight: 800; color: #ffd23f; }
+  .hud-task-progress { font-size: 11.5px; color: #cbd5e1; }
+  .hud-timer-badge {
+    background: rgba(239, 68, 68, 0.25); border: 1px solid #ef4444; border-radius: 8px;
+    padding: 3px 8px; font-size: 12px; font-weight: 800; color: #fca5a5;
+  }
+  .hud-menu-btn {
+    background: linear-gradient(135deg, #f59e0b, #ef4444); color: white; border: none; border-radius: 10px;
+    padding: 7px 14px; font-weight: 800; font-size: 12px; cursor: pointer; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  }
+
+  /* In-Game Powers Floating Action Bar */
+  #ingamePowersHUD {
+    position: fixed; bottom: 20px; right: 20px; z-index: 25;
+    display: flex; gap: 10px; pointer-events: auto;
+  }
+  .power-btn {
+    width: 56px; height: 56px; border-radius: 18px; border: 2px solid rgba(255,255,255,0.25);
+    background: rgba(20, 28, 66, 0.92); color: #fff; font-size: 22px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; position: relative; box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+    transition: all .15s;
+  }
+  .power-btn .p-key { font-size: 10px; font-weight: 800; color: var(--gold); }
+  .power-btn.active { border-color: #4ade80; box-shadow: 0 0 15px #4ade80; animation: pulse 1s infinite; }
+  .power-btn.locked { opacity: 0.35; filter: grayscale(1); cursor: not-allowed; }
+  .power-btn .cd-overlay {
+    position: absolute; inset: 0; background: rgba(0,0,0,0.7); border-radius: 16px;
+    display: none; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: #ffd23f;
+  }
+
+  /* Modals */
+  .game-modal {
+    position: fixed; inset: 0; z-index: 60; background: rgba(10, 14, 30, 0.88);
+    backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center;
+  }
+  .modal-card {
+    width: 580px; max-width: 92vw; max-height: 85vh; background: var(--blue-panel);
+    border: 2px solid var(--gold); border-radius: 24px; padding: 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6); overflow-y: auto; color: #fff;
+    position: relative; animation: popIn .2s ease-out;
+  }
+  .modal-card h2 { font-family: 'Baloo 2', sans-serif; font-size: 24px; margin: 0 0 6px; color: #ffd23f; }
+  .modal-card p { font-size: 13px; color: #cbd5e1; margin: 0 0 16px; line-height: 1.4; }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px; width: 32px; height: 32px;
+    background: rgba(255,255,255,0.15); border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; cursor: pointer; font-weight: 800;
+  }
+  .modal-close:hover { background: #ef4444; }
+
+  /* Wardrobe Items Grid */
+  .wardrobe-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 10px;
+  }
+  .wardrobe-card {
+    background: rgba(25, 34, 75, 0.85); border: 1.5px solid rgba(255,255,255,0.15);
+    border-radius: 16px; padding: 12px; text-align: center; cursor: pointer; transition: all .15s;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+  }
+  .wardrobe-card.unlocked { border-color: #34d399; }
+  .wardrobe-card.equipped { border-color: var(--gold); background: rgba(245, 158, 11, 0.2); box-shadow: var(--gold-glow); }
+  .wardrobe-card.locked { opacity: 0.5; filter: grayscale(0.8); cursor: not-allowed; }
+  .wardrobe-card .w-icon { font-size: 32px; }
+  .wardrobe-card .w-name { font-size: 12.5px; font-weight: 800; color: #fff; }
+  .wardrobe-card .w-lvl { font-size: 10.5px; color: #94a3b8; font-weight: 700; }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+  @keyframes floatAnim {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes popIn {
+    from { transform: scale(0.85); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  @media (max-width: 900px) {
+    .prog-main-container { flex-direction: column; }
+    .prog-left-nav { flex-direction: row; width: 100%; height: auto; }
+    .prog-champion-card { display: none; }
+    #ingamePowersHUD { bottom: 80px; }
+  }
+
+</style>
+</head>
+<body>
+
+<div id="loginOverlay">
+  <div id="loginPanel">
+    <h1>Join Block<span>World</span></h1>
+    <p class="sub">Pick a name and a look, then jump in.</p>
+
+    <label for="nameInput">Username</label>
+    <input id="nameInput" placeholder="e.g. Zaid_07" maxlength="16">
+
+    <label>Avatar color</label>
+    <div id="avatarRow"></div>
+
+    <label for="serverInput">Server URL (optional — for real multiplayer)</label>
+    <input id="serverInput" placeholder="e.g. http://localhost:3000">
+    <div id="serverHint">Leave blank to play a single-player offline demo with simulated players. Enter a running BlockWorld server URL to see real players live — see server.js in the download for setup.</div>
+
+    <button id="playBtn">Play ▶</button>
+    <div id="connStatus"></div>
+  </div>
+</div>
+
+
+<!-- ==============================================
+     100-LEVEL PROGRESSION & REWARD SYSTEM (DASHBOARD)
+     ============================================== -->
+<div id="progressionDashboard">
+  <!-- Top Bar -->
+  <div class="prog-topbar">
+    <div class="prog-profile" id="progProfileBtn">
+      <div class="prog-avatar-frame" id="progAvatarFrame">🏴‍☠️</div>
+      <div class="prog-profile-info">
+        <div class="prog-name" id="progPlayerName">Shahid Manzar</div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="prog-level-badge" id="progLevelBadge">👑 Level 1 / 100</span>
+          <div class="prog-xp-bar"><div class="prog-xp-fill" id="progXpFill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Currencies -->
+    <div class="prog-currencies">
+      <div class="prog-curr-pill">
+        <span>🪙</span> <span id="progCoinsVal">12,500</span> <div class="add-btn" id="addCoinsQuick">+</div>
+      </div>
+      <div class="prog-curr-pill">
+        <span>💎</span> <span id="progGemsVal">250</span> <div class="add-btn" id="addGemsQuick">+</div>
+      </div>
+      <div class="prog-curr-pill">
+        <span>⚡</span> <span id="progEnergyVal">50/50</span> <div class="add-btn" id="addEnergyQuick">+</div>
+      </div>
+    </div>
+
+    <!-- Top Right Action Icons -->
+    <div class="prog-top-actions">
+      <div class="prog-icon-btn" id="dailyRewardBtn">
+        🎁 <span>Daily Reward</span>
+        <div class="prog-badge-dot"></div>
+      </div>
+      <div class="prog-icon-btn" id="achievementsBtn">
+        🏆 <span>Achievements</span>
+      </div>
+      <div class="prog-icon-btn" id="settingsBtn">
+        ⚙️ <span>Settings</span>
+      </div>
+      <div class="prog-icon-btn" id="closeDashboardBtn" style="background:rgba(239,68,68,0.25); border-color:#ef4444;">
+        🎮 <span>Resume</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Center Container (Nav + Current Mission + Level 100 Showcase) -->
+  <div class="prog-main-container">
+    <!-- Left Navigation Bar -->
+    <div class="prog-left-nav">
+      <div class="prog-nav-item active" id="navHome">
+        <span class="nav-icon">🏠</span> <span>Home</span>
+      </div>
+      <div class="prog-nav-item" id="navCustomize">
+        <span class="nav-icon">👕</span> <span>Customize</span>
+      </div>
+      <div class="prog-nav-item" id="navPowers">
+        <span class="nav-icon">⚡</span> <span>Powers</span>
+      </div>
+      <div class="prog-nav-item" id="navRewards">
+        <span class="nav-icon">🏆</span> <span>Rewards</span>
+      </div>
+      <div class="prog-nav-item" id="navFriends">
+        <span class="nav-icon">👥</span> <span>Friends</span>
+      </div>
+      <div class="prog-nav-item" id="navLeaderboard">
+        <span class="nav-icon">📊</span> <span>Rankings</span>
+      </div>
+    </div>
+
+    <!-- Center Mission Hero Card -->
+    <div class="prog-mission-card">
+      <div>
+        <div class="prog-mission-header">
+          <div class="prog-level-banner" id="missionLevelBadge">⭐ Level 1 / 100</div>
+          <div style="font-size:12.5px; color:#94a3b8; font-weight:700;" id="missionCategory">Tier 1: Beginner</div>
+        </div>
+
+        <div class="prog-mission-title" id="missionTitle">
+          <span>🎯</span> Current Task: Collect 10 Coins
+        </div>
+        <div class="prog-mission-desc" id="missionDesc">
+          Explore the world and collect 10 glowing gems/coins to start your journey!
+        </div>
+
+        <!-- Task Progress Meter -->
+        <div class="prog-task-meter">
+          <div class="prog-meter-header">
+            <span>Objective Progress</span>
+            <span id="missionProgressText">0 / 10</span>
+          </div>
+          <div class="prog-bar-track">
+            <div class="prog-bar-fill" id="missionProgressBar" style="width: 0%;"></div>
+          </div>
+          <div class="prog-timer" id="missionTimerWrap" style="display:none;">
+            ⏱️ <span id="missionTimerVal">02:00</span> Time Remaining
+          </div>
+        </div>
+
+        <!-- Rewards & Upcoming Unlock Box -->
+        <div class="prog-rewards-row">
+          <div class="prog-reward-box">
+            <div class="prog-reward-title">Mission Rewards</div>
+            <div class="prog-reward-items">
+              <div class="prog-reward-item">🪙 <span id="missionRewardCoins">+150</span> Coins</div>
+              <div class="prog-reward-item">💎 <span id="missionRewardGems">+10</span> Gems</div>
+            </div>
+          </div>
+          <div class="prog-reward-box">
+            <div class="prog-reward-title">Upcoming Milestone Unlock</div>
+            <div class="prog-reward-items" id="missionNextUnlockRow">
+              <div class="prog-reward-item" style="color:#ffd23f;">👕 Lvl 5: Casual T-Shirt</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <button class="prog-start-btn" id="startMissionBtn">
+        ▶ Start Mission
+      </button>
+    </div>
+
+    <!-- Right Level 100 Showcase Card -->
+    <div class="prog-champion-card">
+      <div class="prog-crown-crest">👑 Level 100 👑</div>
+      <div class="prog-champion-preview">
+        <div class="prog-wings">🪽</div>
+        <div class="prog-champion-avatar">⚡</div>
+      </div>
+      <div class="prog-champion-badge">Ultimate Champion</div>
+      <div class="prog-champion-sub">Legendary Outfit + Super Power!</div>
+      <div style="font-size:32px; margin:4px 0;">🏆</div>
+      <button class="prog-trophy-btn" id="viewLevel100Btn">View Final Challenge 🌟</button>
+    </div>
+  </div>
+
+  <!-- Bottom Roadmap (100 Level Trail) -->
+  <div class="prog-roadmap-wrap">
+    <div class="prog-roadmap-track" id="roadmapTrack">
+      <!-- Generated via JS for 100 levels -->
+    </div>
+
+    <!-- Bottom Stats Bar -->
+    <div class="prog-bottom-stats">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span>Progress:</span>
+        <div style="width:100px; height:8px; background:rgba(255,255,255,0.15); border-radius:4px; overflow:hidden;">
+          <div id="bottomProgFill" style="width:1%; height:100%; background:#4ade80;"></div>
+        </div>
+        <span id="bottomProgPct" style="color:#4ade80;">1%</span>
+      </div>
+
+      <div>💰 Total Coins: <span id="bottomCoins" style="color:#ffd23f;">12,500</span></div>
+      <div>✓ Missions Done: <span id="bottomMissionsDone" style="color:#38bdf8;">0 / 100</span></div>
+
+      <!-- Special Powers Quick-bar -->
+      <div class="prog-powers-quickbar">
+        <span>Powers:</span>
+        <div class="prog-power-item" id="qpSpeed">🏃 Speed [1]</div>
+        <div class="prog-power-item" id="qpJump">🦘 Jump [2]</div>
+        <div class="prog-power-item" id="qpShield">🛡️ Shield [3]</div>
+        <div class="prog-power-item" id="qpFly">🦅 Fly [4]</div>
+      </div>
+
+      <div style="color:#fcd34d; font-size:11.5px;">Complete Tasks, Unlock Dresses, and Become the Ultimate Champion! ⭐</div>
+    </div>
+  </div>
+</div>
+
+<!-- In-Game Floating Quest Tracker HUD (During 3D Gameplay) -->
+<div id="ingameMissionHUD">
+  <div style="font-size:24px;">🎯</div>
+  <div class="hud-task-info">
+    <div class="hud-task-title" id="hudTaskTitle">Level 1: Collect 10 Coins</div>
+    <div class="hud-task-progress" id="hudTaskProgress">0 / 10 collected</div>
+  </div>
+  <div class="hud-timer-badge" id="hudTimerBadge" style="display:none;">⏱️ 02:00</div>
+  <button class="hud-menu-btn" id="hudOpenDashboardBtn">📋 Level Map [M]</button>
+</div>
+
+<!-- In-Game Powers Floating Action Bar -->
+<div id="ingamePowersHUD">
+  <div class="power-btn" id="powerBtn1" title="Speed Boost (Key 1)">
+    🏃 <span class="p-key">1</span>
+    <div class="cd-overlay" id="cdOverlay1">10</div>
+  </div>
+  <div class="power-btn" id="powerBtn2" title="Super Jump (Key 2)">
+    🦘 <span class="p-key">2</span>
+    <div class="cd-overlay" id="cdOverlay2">15</div>
+  </div>
+  <div class="power-btn" id="powerBtn3" title="Energy Shield (Key 3)">
+    🛡️ <span class="p-key">3</span>
+    <div class="cd-overlay" id="cdOverlay3">20</div>
+  </div>
+  <div class="power-btn" id="powerBtn4" title="Flying Power (Key 4)">
+    🦅 <span class="p-key">4</span>
+    <div class="cd-overlay" id="cdOverlay4">25</div>
+  </div>
+</div>
+
+<!-- Modal 1: Congratulations / Level Up Screen -->
+<div class="game-modal" id="victoryModal">
+  <div class="modal-card" style="text-align:center; border-color:#ffd23f;">
+    <div style="font-size:52px; animation:floatAnim 2s infinite;">🏆</div>
+    <h2 style="font-size:32px; color:#ffd23f; margin-top:8px;">LEVEL COMPLETED!</h2>
+    <p id="victorySubtitle" style="font-size:15px; color:#e2e8f0;">Awesome job! You finished the task and proved your skills.</p>
+    
+    <div style="background:rgba(255,255,255,0.06); border-radius:18px; padding:16px; margin:16px 0; border:1px solid rgba(255,255,255,0.15);">
+      <div style="font-size:13px; font-weight:800; color:#38bdf8; text-transform:uppercase; margin-bottom:10px;">REWARDS EARNED</div>
+      <div style="display:flex; justify-content:center; gap:20px; font-size:16px; font-weight:800;" id="victoryRewardsList">
+        <div>🪙 <span id="vicCoins">+250</span> Coins</div>
+        <div>💎 <span id="vicGems">+15</span> Gems</div>
+      </div>
+      <div id="vicUnlockHighlight" style="margin-top:12px; font-weight:800; color:#ffd23f; font-size:15px;"></div>
+    </div>
+
+    <button class="prog-start-btn" id="vicContinueBtn" style="background:linear-gradient(90deg, #10b981, #059669); box-shadow:0 6px 20px rgba(16,185,129,0.4);">
+      Claim & Next Level ▶
+    </button>
+  </div>
+</div>
+
+<!-- Modal 2: Character Customization (Dresses & Outfits) -->
+<div class="game-modal" id="wardrobeModal">
+  <div class="modal-card" style="width:720px;">
+    <div class="modal-close" id="closeWardrobeBtn">✕</div>
+    <h2>Wardrobe & Outfits Unlock</h2>
+    <p>Progress through levels 1–100 to unlock exclusive streetwear, anime hair, superhero suits, and the Level 100 Ultimate Champion Regalia!</p>
+    <div class="wardrobe-grid" id="wardrobeGrid">
+      <!-- Generated via JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Modal 3: Special Powers Dashboard -->
+<div class="game-modal" id="powersModal">
+  <div class="modal-card" style="width:680px;">
+    <div class="modal-close" id="closePowersBtn">✕</div>
+    <h2>Special Powers Dashboard</h2>
+    <p>Unlock game-changing superpowers at milestone levels! Use hotkeys [1], [2], [3], [4] or tap the in-game buttons to activate them.</p>
+    <div id="powersListContainer" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+      <!-- Generated via JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Modal 4: Daily Rewards -->
+<div class="game-modal" id="dailyRewardModal">
+  <div class="modal-card" style="width:620px; text-align:center;">
+    <div class="modal-close" id="closeDailyBtn">✕</div>
+    <h2>7-Day Login Streak Rewards</h2>
+    <p>Log in daily to claim gold coins, rare gems, and epic mystery outfits!</p>
+    <div id="dailyStreakGrid" style="display:grid; grid-template-columns:repeat(7, 1fr); gap:8px; margin:16px 0;">
+      <!-- Generated via JS -->
+    </div>
+    <button class="prog-start-btn" id="claimDailyBtn">Claim Today's Reward 🎁</button>
+  </div>
+</div>
+
+<!-- Modal 5: Achievements -->
+<div class="game-modal" id="achievementsModal">
+  <div class="modal-card" style="width:640px;">
+    <div class="modal-close" id="closeAchievementsBtn">✕</div>
+    <h2>Trophy Achievements</h2>
+    <p>Complete special feats across BlockWorld to claim extra currency rewards.</p>
+    <div id="achievementsList" style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+      <!-- Generated via JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Modal 6: Leaderboard -->
+<div class="game-modal" id="leaderboardModal">
+  <div class="modal-card" style="width:580px;">
+    <div class="modal-close" id="closeLeaderboardBtn">✕</div>
+    <h2>Global Champions Leaderboard</h2>
+    <p>The highest level explorers and champions in BlockWorld.</p>
+    <div id="leaderboardList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+      <!-- Generated via JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Modal 7: Level 100 Final Championship Showcase -->
+<div class="game-modal" id="level100CelebrationModal">
+  <div class="modal-card" style="width:640px; text-align:center; border-color:#ffd23f;">
+    <div class="modal-close" id="closeLevel100Btn">✕</div>
+    <div style="font-size:64px;">👑</div>
+    <h2 style="font-size:32px; color:#ffd23f;">LEVEL 100 ULTIMATE CHAMPION</h2>
+    <p style="font-size:15px; color:#e2e8f0;">
+      The pinnacle of BlockWorld! Finish Level 99 to unlock the epic multi-objective final trial:
+      Gather the 5 Champion Runes, activate the 4 elemental shrines, and claim the Ultimate Golden Throne!
+    </p>
+    <div style="background:rgba(255,210,63,0.15); border:1.5px solid #ffd23f; border-radius:18px; padding:16px; margin:16px 0;">
+      <div style="font-size:16px; font-weight:800; color:#ffd23f; margin-bottom:6px;">FINAL CHAMPION REWARDS</div>
+      <div style="font-size:14px; color:#fff; line-height:1.6;">
+        🌟 <b>Ultimate Legendary Dress:</b> Golden Armored Regalia with Majestic Animated Wings & Halo<br>
+        ⚡ <b>Ultimate Super Power:</b> Permanent Flight + Omni-Speed + Rainbow Cosmic Aura<br>
+        🏆 <b>Level 100 Golden Trophy:</b> Permanent badge of honor
+      </div>
+    </div>
+    <button class="prog-start-btn" id="startLevel100FinalBtn" style="background:linear-gradient(90deg, #f59e0b, #ec4899);">
+      Accept the Challenge ⚡
+    </button>
+  </div>
+</div>
+
+<div id="canvas-wrap"></div>
+
+<div class="hud">
+  <div id="topbar">
+    <div id="logo">Block<span>World</span></div>
+    <div id="stats">
+      <div class="pill" id="coinPill"><span class="dot"></span><span id="coinCount">0</span></div>
+      <div class="pill" id="playersPill"><span class="dot"></span><span id="playerCount">1</span> online</div>
+    </div>
+  </div>
+
+  <div id="videosWrap"></div>
+
+  <div id="actions">
+    <div class="action-btn" id="micBtn" title="Toggle Mic" style="background:#ff4d4d; color:white;">🎤</div>
+    <div class="action-btn" id="camBtn" title="Toggle Camera" style="background:#ff4d4d; color:white;">📹</div>
+    <div class="action-btn" id="shopBtn" title="Shop">🛒</div>
+    <div class="action-btn" id="jumpBtnDesktop" title="Jump">⬆</div>
+  </div>
+
+  <div id="footNote">Offline demo mode shows simulated players. Run the included server.js and enter its URL at login to see real players sync live. Coins/skins reset on refresh — persistent accounts need a database.</div>
+
+  <div id="chatWrap">
+    <div id="chatLog"></div>
+    <div id="chatInputRow">
+      <input id="chatInput" placeholder="Say something…" maxlength="80">
+      <button id="chatSend">Send</button>
+    </div>
+  </div>
+
+  <div id="hint">WASD to move · mouse drag to look · space to jump · walk into gems 💎</div>
+</div>
+
+<div id="modalOverlay">
+  <div id="shopPanel">
+    <h2>Skin Shop</h2>
+    <p>Spend coins to unlock a new look for your character.</p>
+    <div id="skinGrid"></div>
+    <button id="closeShop">Close</button>
+  </div>
+</div>
+
+<div id="joystickZone"><div id="joyBase"></div><div id="joyStick"></div></div>
+<div id="lookZone"></div>
+<div class="action-btn" id="jumpBtnMobile">⬆</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://unpkg.com/simple-peer@9.11.1/simplepeer.min.js"></script>
+<script>
+(function(){
+  // ---------- Setup ----------
+  const wrap = document.getElementById('canvas-wrap');
+  const scene = new THREE.Scene();
+  const skyTop = new THREE.Color(0x8ec9ff), skyBottom = new THREE.Color(0xd9c7ff);
+  scene.background = skyTop;
+  scene.fog = new THREE.Fog(0xbcd4ff, 40, 140);
+
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 500);
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  wrap.appendChild(renderer.domElement);
+
+  window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // Lights
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x6b8f5a, 0.9);
+  scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+  sun.position.set(30,50,20);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(1024,1024);
+  sun.shadow.camera.left=-60; sun.shadow.camera.right=60; sun.shadow.camera.top=60; sun.shadow.camera.bottom=-60;
+  scene.add(sun);
+
+  // ==========================================
+  // WORLD & DISTRICT BUILDER (City, Beach, Farm)
+  // ==========================================
+
+  // --- Base Terrain & Ground ---
+  const groundMat = new THREE.MeshStandardMaterial({color:0x6bcb77, roughness:0.95});
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(340,340), groundMat);
+  ground.rotation.x = -Math.PI/2;
+  ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Global lists for animation
+  const animatedCars = [];
+  const animatedSwimRings = [];
+  const animatedAnimals = [];
+  let oceanWaterMesh = null;
+  let petCompanion = null;
+
+  // ------------------------------------------
+  // 1. CITY DISTRICT (Inspired by Image 1)
+  // ------------------------------------------
+  function buildCityDistrict(){
+    const cityGroup = new THREE.Group();
+
+    // Road Materials
+    const asphaltMat = new THREE.MeshStandardMaterial({color:0x2d3038, roughness:0.85});
+    const sidewalkMat = new THREE.MeshStandardMaterial({color:0xb2b6c4, roughness:0.75});
+    const curbMat = new THREE.MeshStandardMaterial({color:0x858997, roughness:0.8});
+    const whiteLineMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.4});
+    const metalMat = new THREE.MeshStandardMaterial({color:0x525661, metalness:0.6, roughness:0.4});
+
+    // Main Boulevard (Running West-East from x = -85 to 10, around z = 0)
+    const mainRoad = new THREE.Mesh(new THREE.PlaneGeometry(95, 14), asphaltMat);
+    mainRoad.rotation.x = -Math.PI/2;
+    mainRoad.position.set(-37.5, 0.02, 0);
+    mainRoad.receiveShadow = true;
+    cityGroup.add(mainRoad);
+
+    // Cross Street (Running North-South from z = -60 to 25, around x = -40)
+    const crossRoad = new THREE.Mesh(new THREE.PlaneGeometry(14, 85), asphaltMat);
+    crossRoad.rotation.x = -Math.PI/2;
+    crossRoad.position.set(-40, 0.025, -17.5);
+    crossRoad.receiveShadow = true;
+    cityGroup.add(crossRoad);
+
+    // Center Dashed White Lines
+    for(let x = -82; x <= 6; x += 6){
+      if(Math.abs(x - (-40)) < 9) continue; // Skip intersection
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.35), whiteLineMat);
+      dash.rotation.x = -Math.PI/2;
+      dash.position.set(x, 0.03, 0);
+      cityGroup.add(dash);
+    }
+    for(let z = -58; z <= 22; z += 6){
+      if(Math.abs(z - 0) < 9) continue; // Skip intersection
+      const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 3.2), whiteLineMat);
+      dash.rotation.x = -Math.PI/2;
+      dash.position.set(-40, 0.035, z);
+      cityGroup.add(dash);
+    }
+
+    // Pedestrian Crosswalks (Zebra Stripes at Intersection x = -40, z = 0)
+    function makeCrosswalk(cx, cz, isVertical){
+      const g = new THREE.Group();
+      for(let i = -5.5; i <= 5.5; i += 1.3){
+        const stripe = new THREE.Mesh(
+          new THREE.PlaneGeometry(isVertical ? 0.75 : 3.5, isVertical ? 3.5 : 0.75),
+          whiteLineMat
+        );
+        stripe.rotation.x = -Math.PI/2;
+        if(isVertical) stripe.position.set(i, 0.04, 0);
+        else stripe.position.set(0, 0.04, i);
+        g.add(stripe);
+      }
+      g.position.set(cx, 0, cz);
+      cityGroup.add(g);
+    }
+    makeCrosswalk(-40, -8.5, true);  // North crosswalk
+    makeCrosswalk(-40, 8.5, true);   // South crosswalk
+    makeCrosswalk(-48.5, 0, false);  // West crosswalk
+    makeCrosswalk(-31.5, 0, false);  // East crosswalk
+
+    // Sidewalks & Curbs
+    function makeSidewalk(x, z, w, h){
+      const sw = new THREE.Mesh(new THREE.BoxGeometry(w, 0.22, h), sidewalkMat);
+      sw.position.set(x, 0.11, z);
+      sw.receiveShadow = true;
+      const curb = new THREE.Mesh(new THREE.BoxGeometry(w, 0.24, 0.3), curbMat);
+      curb.position.set(x, 0.12, z > 0 ? z - h/2 + 0.15 : z + h/2 - 0.15);
+      cityGroup.add(sw, curb);
+    }
+    // North sidewalks
+    makeSidewalk(-65, -10.5, 36, 6);
+    makeSidewalk(-15, -10.5, 36, 6);
+    // South sidewalks
+    makeSidewalk(-65, 10.5, 36, 6);
+    makeSidewalk(-15, 10.5, 36, 6);
+
+    // --- Traffic Lights on Cantilever Poles ---
+    function makeTrafficLight(x, z, rotY){
+      const g = new THREE.Group();
+      // Main Vertical Pole
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.16, 5.2, 12), metalMat);
+      pole.position.y = 2.6;
+      pole.castShadow = true;
+      // Cantilever Horizontal Arm
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, 3.8, 12), metalMat);
+      arm.rotation.z = Math.PI/2;
+      arm.position.set(1.9, 4.8, 0);
+      // Light housing
+      const housing = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.4, 0.4), new THREE.MeshStandardMaterial({color:0x222428, roughness:0.6}));
+      housing.position.set(3.2, 4.8, 0);
+      housing.castShadow = true;
+      // 3 Lights: Red, Yellow, Green
+      const redLight = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), new THREE.MeshStandardMaterial({color:0xff2222, emissive:0xff1111, emissiveIntensity:0.6}));
+      redLight.position.set(3.2, 5.25, 0.21);
+      const yellowLight = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), new THREE.MeshStandardMaterial({color:0xffcc00, emissive:0xff9900, emissiveIntensity:0.5}));
+      yellowLight.position.set(3.2, 4.8, 0.21);
+      const greenLight = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), new THREE.MeshStandardMaterial({color:0x22ee55, emissive:0x11cc33, emissiveIntensity:0.9}));
+      greenLight.position.set(3.2, 4.35, 0.21);
+      // Secondary pedestrian light
+      const pedHousing = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.8, 0.3), new THREE.MeshStandardMaterial({color:0x222428}));
+      pedHousing.position.set(0, 2.8, 0.2);
+      const pedLight = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 10), new THREE.MeshStandardMaterial({color:0x22ee55, emissive:0x11cc33, emissiveIntensity:0.8}));
+      pedLight.position.set(0, 2.65, 0.36);
+      g.add(pole, arm, housing, redLight, yellowLight, greenLight, pedHousing, pedLight);
+      g.position.set(x, 0, z);
+      g.rotation.y = rotY;
+      cityGroup.add(g);
+    }
+    makeTrafficLight(-48, -8, 0);
+    makeTrafficLight(-32, 8, Math.PI);
+    makeTrafficLight(-32, -8, -Math.PI/2);
+    makeTrafficLight(-48, 8, Math.PI/2);
+
+    // --- Street Lamps ---
+    function makeStreetLamp(x, z){
+      const g = new THREE.Group();
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.13, 4.2, 10), metalMat);
+      pole.position.y = 2.1;
+      pole.castShadow = true;
+      const topCurve = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.0, 10), metalMat);
+      topCurve.rotation.z = Math.PI/3;
+      topCurve.position.set(0.45, 4.3, 0);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 10), new THREE.MeshStandardMaterial({color:0xfff6bd, emissive:0xffe484, emissiveIntensity:0.8}));
+      bulb.position.set(0.85, 4.5, 0);
+      g.add(pole, topCurve, bulb);
+      g.position.set(x, 0, z);
+      cityGroup.add(g);
+    }
+    makeStreetLamp(-75, -8);
+    makeStreetLamp(-58, -8);
+    makeStreetLamp(-22, -8);
+    makeStreetLamp(-5, -8);
+    makeStreetLamp(-75, 8);
+    makeStreetLamp(-22, 8);
+
+    // --- Bus Stop Shelter (Image 1 foreground) ---
+    function makeBusStop(x, z){
+      const g = new THREE.Group();
+      const frameMat = new THREE.MeshStandardMaterial({color:0x363a45, metalness:0.4, roughness:0.5});
+      const glassMat = new THREE.MeshStandardMaterial({color:0x4fa8d1, transparent:true, opacity:0.65, roughness:0.2});
+      const woodSeatMat = new THREE.MeshStandardMaterial({color:0x9c6536, roughness:0.8});
+
+      // Roof (curved)
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.15, 2.2), frameMat);
+      roof.position.set(0, 2.6, 0);
+      roof.rotation.x = 0.08;
+      // Back Glass Wall
+      const backGlass = new THREE.Mesh(new THREE.BoxGeometry(4.0, 2.3, 0.08), glassMat);
+      backGlass.position.set(0, 1.25, -0.9);
+      // Side Glass Wall
+      const sideGlass = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.3, 1.8), glassMat);
+      sideGlass.position.set(-2.0, 1.25, 0);
+      // Pillars
+      const p1 = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.5), frameMat);
+      p1.position.set(-2.0, 1.25, 0.9);
+      const p2 = p1.clone(); p2.position.set(2.0, 1.25, 0.9);
+      const p3 = p1.clone(); p3.position.set(2.0, 1.25, -0.9);
+      // Bench inside
+      const bench = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.12, 0.6), woodSeatMat);
+      bench.position.set(0, 0.6, -0.4);
+      // Timetable Display
+      const board = new THREE.Mesh(new THREE.BoxGeometry(0.9, 1.2, 0.08), new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.3}));
+      board.position.set(1.1, 1.4, -0.85);
+
+      g.add(roof, backGlass, sideGlass, p1, p2, p3, bench, board);
+      g.position.set(x, 0, z);
+      cityGroup.add(g);
+    }
+    makeBusStop(-25, 10.5);
+
+    // --- Digital Kiosk Billboard (Image 1 blue kiosk) ---
+    function makeKiosk(x, z){
+      const g = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.8, 0.35), new THREE.MeshStandardMaterial({color:0x2d68c4, roughness:0.5}));
+      body.position.y = 1.4;
+      body.castShadow = true;
+      const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.85, 1.8), new THREE.MeshStandardMaterial({color:0xffffff, emissive:0x6ba9ff, emissiveIntensity:0.5}));
+      screen.position.set(0, 1.5, 0.18);
+      g.add(body, screen);
+      g.position.set(x, 0, z);
+      cityGroup.add(g);
+    }
+    makeKiosk(-14, 10.5);
+
+    // --- Detailed City Buildings (Image 1 Architecture) ---
+    // Building 1: Terracotta 3-Story Apartment with Awnings & Balconies
+    function makeTerracottaBuilding(x, z){
+      const g = new THREE.Group();
+      const wallMat = new THREE.MeshStandardMaterial({color:0xd1755a, roughness:0.75});
+      const windowMat = new THREE.MeshStandardMaterial({color:0x2d4860, roughness:0.2, metalness:0.3});
+      const frameMat = new THREE.MeshStandardMaterial({color:0x5e3a2d, roughness:0.8});
+      const awningMat = new THREE.MeshStandardMaterial({color:0xcc2626, roughness:0.7});
+      const flowerMat = new THREE.MeshStandardMaterial({color:0xff4d79});
+      const plantMat = new THREE.MeshStandardMaterial({color:0x3da34f});
+
+      // Main structure
+      const main = new THREE.Mesh(new THREE.BoxGeometry(10, 12, 10), wallMat);
+      main.position.y = 6;
+      main.castShadow = true;
+      g.add(main);
+
+      // Windows grid on front face (z = 5.05)
+      for(let floor = 0; floor < 3; floor++){
+        const wy = 2.4 + floor * 3.6;
+        for(let wx = -3.2; wx <= 3.2; wx += 3.2){
+          // Window glass
+          const win = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 2.0), windowMat);
+          win.position.set(wx, wy, 5.06);
+          // Frame
+          const frame = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.2, 0.1), frameMat);
+          frame.position.set(wx, wy, 5.02);
+          g.add(win, frame);
+
+          // Flower planter box under windows
+          const planter = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.35, 0.4), new THREE.MeshStandardMaterial({color:0x824b2b}));
+          planter.position.set(wx, wy - 1.15, 5.22);
+          const flowers = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.25, 0.3), plantMat);
+          flowers.position.set(wx, wy - 0.95, 5.22);
+          const blossom = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), flowerMat);
+          blossom.position.set(wx, wy - 0.8, 5.25);
+          g.add(planter, flowers, blossom);
+        }
+      }
+
+      // Ground Floor Store Awning (Red)
+      const awning = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.3, 2.2), awningMat);
+      awning.position.set(0, 3.8, 6.0);
+      awning.rotation.x = 0.28;
+      awning.castShadow = true;
+      g.add(awning);
+
+      // Rooftop Water Tank & Antenna
+      const tank = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 2.2, 16), metalMat);
+      tank.position.set(-2.5, 13.1, -1.5);
+      tank.castShadow = true;
+      const dish = new THREE.Mesh(new THREE.SphereGeometry(0.9, 12, 8, 0, Math.PI*2, 0, Math.PI*0.45), metalMat);
+      dish.position.set(2.2, 13.0, 1.0);
+      dish.rotation.x = -0.5;
+      g.add(tank, dish);
+
+      g.position.set(x, 0, z);
+      cityGroup.add(g);
+    }
+    makeTerracottaBuilding(-20, -18);
+
+    // Building 2: Sky-Blue Townhouse with Yellow Ground Base (Image 1)
+    function makeBlueBuilding(x, z){
+      const g = new THREE.Group();
+      const blueMat = new THREE.MeshStandardMaterial({color:0x4d91e6, roughness:0.7});
+      const yellowMat = new THREE.MeshStandardMaterial({color:0xf0c74b, roughness:0.75});
+      const whiteMat = new THREE.MeshStandardMaterial({color:0xf4f6fc, roughness:0.6});
+      const winMat = new THREE.MeshStandardMaterial({color:0x22364a, roughness:0.2});
+
+      // Upper blue floors
+      const upper = new THREE.Mesh(new THREE.BoxGeometry(11, 8.5, 10), blueMat);
+      upper.position.y = 8.25;
+      upper.castShadow = true;
+      // Yellow ground floor
+      const lower = new THREE.Mesh(new THREE.BoxGeometry(11.2, 4.0, 10.2), yellowMat);
+      lower.position.y = 2.0;
+      lower.castShadow = true;
+      g.add(upper, lower);
+
+      // White cornice band
+      const cornice = new THREE.Mesh(new THREE.BoxGeometry(11.5, 0.45, 10.5), whiteMat);
+      cornice.position.y = 4.1;
+      g.add(cornice);
+
+      // Windows
+      for(let wy of [6.2, 9.6]){
+        for(let wx = -3.6; wx <= 3.6; wx += 2.4){
+          const w = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.8), winMat);
+          w.position.set(wx, wy, 5.06);
+          const wf = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.0, 0.08), whiteMat);
+          wf.position.set(wx, wy, 5.02);
+          g.add(w, wf);
+        }
+      }
+
+      // Arched Doorway on ground floor
+      const door = new THREE.Mesh(new THREE.BoxGeometry(2.0, 3.0, 0.1), new THREE.MeshStandardMaterial({color:0x442718}));
+      door.position.set(0, 1.5, 5.16);
+      g.add(door);
+
+      g.position.set(x, 0, z);
+      cityGroup.add(g);
+    }
+    makeBlueBuilding(-58, -18);
+
+    // Building 3: Emerald Green Townhouse with Striped Cafe Awning (Image 1)
+    function makeGreenBuilding(x, z){
+      const g = new THREE.Group();
+      const greenMat = new THREE.MeshStandardMaterial({color:0x2ea363, roughness:0.7});
+      const stripedAwning = new THREE.MeshStandardMaterial({color:0x42cf82, roughness:0.6});
+      const body = new THREE.Mesh(new THREE.BoxGeometry(8, 10, 9), greenMat);
+      body.position.y = 5.0;
+      body.castShadow = true;
+      // Striped awning
+      const awn = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 7.6, 16, 1, false, 0, Math.PI), stripedAwning);
+      awn.rotation.z = Math.PI/2;
+      awn.rotation.x = Math.PI/2;
+      awn.position.set(0, 3.4, 4.8);
+      g.add(body, awn);
+
+      // Outdoor Cafe table & chairs
+      const table = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.7, 12), new THREE.MeshStandardMaterial({color:0xffffff}));
+      table.position.set(2.0, 0.35, 6.2);
+      g.add(table);
+
+      g.position.set(x, 0, z);
+      cityGroup.add(g);
+    }
+    makeGreenBuilding(-76, -18);
+
+    // Building 4: South Corner Commercial Building (Coral/Red)
+    function makeCornerBuilding(x, z){
+      const g = new THREE.Group();
+      const coralMat = new THREE.MeshStandardMaterial({color:0xeb594b, roughness:0.8});
+      const b = new THREE.Mesh(new THREE.BoxGeometry(10, 11, 9), coralMat);
+      b.position.y = 5.5;
+      b.castShadow = true;
+      // Glass storefront
+      const glass = new THREE.Mesh(new THREE.PlaneGeometry(8, 3.2), new THREE.MeshStandardMaterial({color:0x223c52, roughness:0.2}));
+      glass.position.set(0, 2.0, -4.56);
+      glass.rotation.y = Math.PI;
+      g.add(b, glass);
+      g.position.set(x, 0, z);
+      cityGroup.add(g);
+    }
+    makeCornerBuilding(-20, 20);
+
+    // Building 5: Modern Highrise in background (Image 1 background)
+    function makeHighrise(x, z){
+      const g = new THREE.Group();
+      const tower = new THREE.Mesh(new THREE.BoxGeometry(12, 24, 12), new THREE.MeshStandardMaterial({color:0x5291bf, metalness:0.3, roughness:0.4}));
+      tower.position.y = 12;
+      tower.castShadow = true;
+      for(let f = 2; f < 23; f += 2.5){
+        const band = new THREE.Mesh(new THREE.BoxGeometry(12.3, 0.35, 12.3), new THREE.MeshStandardMaterial({color:0xf4f6fa}));
+        band.position.y = f;
+        g.add(band);
+      }
+      g.add(tower);
+      g.position.set(x, 0, z);
+      cityGroup.add(g);
+    }
+    makeHighrise(-70, -38);
+
+    // --- Low-Poly Cars on the Street (Image 1 foreground & road) ---
+    // Car 1: Orange Sports Car with Rear Spoiler (Exact match to Image 1 foreground!)
+    function makeOrangeSportsCar(){
+      const car = new THREE.Group();
+      const orangeMat = new THREE.MeshStandardMaterial({color:0xf25822, roughness:0.5, metalness:0.1});
+      const darkGlassMat = new THREE.MeshStandardMaterial({color:0x1b2838, roughness:0.1, metalness:0.6});
+      const rubberMat = new THREE.MeshStandardMaterial({color:0x1e2024, roughness:0.9});
+      const rimMat = new THREE.MeshStandardMaterial({color:0xd4d8e3, metalness:0.8, roughness:0.3});
+      const lightMat = new THREE.MeshStandardMaterial({color:0xfffae0, emissive:0xfffae0, emissiveIntensity:0.9});
+      const redLightMat = new THREE.MeshStandardMaterial({color:0xff2222, emissive:0xff1111, emissiveIntensity:0.8});
+
+      // Lower Chassis
+      const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.55, 4.4), orangeMat);
+      chassis.position.y = 0.55;
+      chassis.castShadow = true;
+      // Cabin / Roof
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.65, 2.2), darkGlassMat);
+      cabin.position.set(0, 1.1, -0.2);
+      cabin.castShadow = true;
+      // Roof Shell
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 1.8), orangeMat);
+      roof.position.set(0, 1.45, -0.2);
+      // Aerodynamic Rear Wing / Spoiler (Iconic in Image 1!)
+      const spoilerBlade = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.08, 0.45), orangeMat);
+      spoilerBlade.position.set(0, 1.35, -2.0);
+      const postL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.45, 0.15), orangeMat);
+      postL.position.set(-0.7, 1.05, -2.0);
+      const postR = postL.clone(); postR.position.x = 0.7;
+      // Front Dual Headlights
+      const hLightL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.18, 0.1), lightMat);
+      hLightL.position.set(-0.7, 0.65, 2.21);
+      const hLightR = hLightL.clone(); hLightR.position.x = 0.7;
+      // Rear Taillights
+      const tLightL = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.16, 0.1), redLightMat);
+      tLightL.position.set(-0.7, 0.65, -2.21);
+      const tLightR = tLightL.clone(); tLightR.position.x = 0.7;
+
+      car.add(chassis, cabin, roof, spoilerBlade, postL, postR, hLightL, hLightR, tLightL, tLightR);
+
+      // 4 Wheels
+      const wheels = [];
+      const wheelGeo = new THREE.CylinderGeometry(0.38, 0.38, 0.32, 16);
+      const rimGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.34, 12);
+      const wheelPositions = [
+        [-1.05, 0.38, 1.3],
+        [1.05, 0.38, 1.3],
+        [-1.05, 0.38, -1.3],
+        [1.05, 0.38, -1.3]
+      ];
+      wheelPositions.forEach(pos=>{
+        const wGroup = new THREE.Group();
+        const tire = new THREE.Mesh(wheelGeo, rubberMat);
+        tire.rotation.z = Math.PI/2;
+        tire.castShadow = true;
+        const rim = new THREE.Mesh(rimGeo, rimMat);
+        rim.rotation.z = Math.PI/2;
+        wGroup.add(tire, rim);
+        wGroup.position.set(pos[0], pos[1], pos[2]);
+        car.add(wGroup);
+        wheels.push(wGroup);
+      });
+
+      return {mesh: car, wheels, speed: 7.0, dir: 1, minX: -80, maxX: 6, axis: 'x', laneZ: 3.2};
+    }
+
+    // Car 2: Blue Pickup Truck (Image 1 background street)
+    function makePickupTruck(){
+      const truck = new THREE.Group();
+      const blueMat = new THREE.MeshStandardMaterial({color:0x286ec4, roughness:0.6});
+      const glassMat = new THREE.MeshStandardMaterial({color:0x1b2838, roughness:0.1});
+      const body = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.8, 4.8), blueMat);
+      body.position.y = 0.75;
+      body.castShadow = true;
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.85, 2.0), glassMat);
+      cabin.position.set(0, 1.45, 0.5);
+      const bed = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.5, 2.0), new THREE.MeshStandardMaterial({color:0x20242a}));
+      bed.position.set(0, 0.85, -1.2);
+      truck.add(body, cabin, bed);
+
+      const wheels = [];
+      const wheelGeo = new THREE.CylinderGeometry(0.44, 0.44, 0.36, 16);
+      [[-1.15, 0.44, 1.4], [1.15, 0.44, 1.4], [-1.15, 0.44, -1.4], [1.15, 0.44, -1.4]].forEach(pos=>{
+        const w = new THREE.Mesh(wheelGeo, new THREE.MeshStandardMaterial({color:0x1b1c20}));
+        w.rotation.z = Math.PI/2;
+        w.position.set(pos[0], pos[1], pos[2]);
+        w.castShadow = true;
+        truck.add(w);
+        wheels.push(w);
+      });
+      return {mesh: truck, wheels, speed: 5.5, dir: -1, minX: -80, maxX: 6, axis: 'x', laneZ: -3.2};
+    }
+
+    const sportsCar = makeOrangeSportsCar();
+    sportsCar.mesh.position.set(-20, 0, sportsCar.laneZ);
+    sportsCar.mesh.rotation.y = Math.PI/2;
+    cityGroup.add(sportsCar.mesh);
+    animatedCars.push(sportsCar);
+
+    const pickup = makePickupTruck();
+    pickup.mesh.position.set(-50, 0, pickup.laneZ);
+    pickup.mesh.rotation.y = -Math.PI/2;
+    cityGroup.add(pickup.mesh);
+    animatedCars.push(pickup);
+
+    scene.add(cityGroup);
+  }
+  buildCityDistrict();
+
+  // ------------------------------------------
+  // 2. TROPICAL BEACH & ISLAND (Inspired by Image 2)
+  // ------------------------------------------
+  function buildBeachDistrict(){
+    const beachGroup = new THREE.Group();
+
+    // Ocean Water Plane (Animated in main loop!)
+    const waterGeo = new THREE.PlaneGeometry(160, 140, 32, 28);
+    const waterMat = new THREE.MeshStandardMaterial({
+      color: 0x18c2e8,
+      roughness: 0.15,
+      metalness: 0.1,
+      transparent: true,
+      opacity: 0.85
+    });
+    oceanWaterMesh = new THREE.Mesh(waterGeo, waterMat);
+    oceanWaterMesh.rotation.x = -Math.PI/2;
+    oceanWaterMesh.position.set(-35, -0.05, 95);
+    oceanWaterMesh.receiveShadow = true;
+    beachGroup.add(oceanWaterMesh);
+
+    // Warm Sandy Shoreline
+    const sandMat = new THREE.MeshStandardMaterial({color:0xf0d99a, roughness:1.0});
+    const sandShore = new THREE.Mesh(new THREE.PlaneGeometry(150, 50), sandMat);
+    sandShore.rotation.x = -Math.PI/2;
+    sandShore.position.set(-35, 0.04, 38);
+    sandShore.receiveShadow = true;
+    beachGroup.add(sandShore);
+
+    // --- Low-Poly Palm Trees (Image 2) ---
+    function makePalmTree(x, z, scale=1.0){
+      const g = new THREE.Group();
+      const trunkMat = new THREE.MeshStandardMaterial({color:0x87552e, roughness:0.9});
+      const leafMat = new THREE.MeshStandardMaterial({color:0x34b84b, roughness:0.7, side:THREE.DoubleSide});
+      const cocoMat = new THREE.MeshStandardMaterial({color:0x5e3717, roughness:0.85});
+
+      // Segmented curved trunk
+      let curY = 0, curZ = 0;
+      for(let i=0; i<6; i++){
+        const rTop = 0.42 - i*0.035, rBot = 0.48 - i*0.035;
+        const seg = new THREE.Mesh(new THREE.CylinderGeometry(rTop, rBot, 1.1, 8), trunkMat);
+        seg.position.set(0, curY + 0.55, curZ);
+        seg.rotation.x = 0.08 * i;
+        seg.castShadow = true;
+        g.add(seg);
+        curY += 1.0;
+        curZ += 0.08 * i;
+      }
+
+      // Coconuts
+      for(let a=0; a<Math.PI*2; a+=Math.PI*0.6){
+        const coco = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 8), cocoMat);
+        coco.position.set(Math.cos(a)*0.45, curY + 0.1, curZ + Math.sin(a)*0.45);
+        g.add(coco);
+      }
+
+      // 7 Drooping Fan Palm Fronds
+      for(let f=0; f<7; f++){
+        const angle = (f / 7) * Math.PI * 2;
+        const leafGroup = new THREE.Group();
+        leafGroup.position.set(0, curY + 0.35, curZ);
+        leafGroup.rotation.y = angle;
+
+        // Curved palm leaf segments
+        const frond = new THREE.Mesh(new THREE.ConeGeometry(0.9, 3.6, 5), leafMat);
+        frond.rotation.x = Math.PI * 0.42;
+        frond.position.set(0, -0.2, 1.8);
+        frond.scale.set(1.0, 1.0, 0.2);
+        frond.castShadow = true;
+        leafGroup.add(frond);
+        g.add(leafGroup);
+      }
+
+      g.position.set(x, 0, z);
+      g.scale.set(scale, scale, scale);
+      beachGroup.add(g);
+    }
+
+    makePalmTree(-80, 32, 1.1);
+    makePalmTree(-62, 45, 1.2);
+    makePalmTree(-45, 36, 0.95);
+    makePalmTree(-22, 48, 1.15);
+    makePalmTree(-8, 38, 1.0);
+    makePalmTree(-72, 60, 1.3);
+    makePalmTree(-30, 68, 1.1);
+    makePalmTree(10, 50, 1.0);
+
+    // --- Striped Beach Umbrellas (Image 2) ---
+    function makeBeachUmbrella(x, z, c1, c2, tiltX=0.15){
+      const g = new THREE.Group();
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.8), new THREE.MeshStandardMaterial({color:0xe0cda8}));
+      pole.position.y = 1.35;
+      pole.rotation.x = tiltX;
+      pole.castShadow = true;
+
+      // Canopy with alternating colored stripes
+      const canopy = new THREE.Mesh(new THREE.ConeGeometry(1.9, 0.9, 12), new THREE.MeshStandardMaterial({color:c1, roughness:0.7}));
+      canopy.position.set(0, 2.6, 0.4);
+      canopy.rotation.x = tiltX;
+      canopy.castShadow = true;
+      g.add(pole, canopy);
+      g.position.set(x, 0, z);
+      beachGroup.add(g);
+    }
+    makeBeachUmbrella(-52, 42, 0xff3b77, 0xffffff, 0.12);
+    makeBeachUmbrella(-35, 46, 0x3bb8ff, 0xffd23f, -0.15);
+    makeBeachUmbrella(-15, 42, 0x4dd98b, 0xffffff, 0.18);
+    makeBeachUmbrella(2, 46, 0xff7b3b, 0xffffff, -0.1);
+
+    // --- Reclining Sun Lounger Deck Chairs (Image 2) ---
+    function makeDeckChair(x, z, rotY, color){
+      const g = new THREE.Group();
+      const frameMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.5});
+      const fabricMat = new THREE.MeshStandardMaterial({color:color, roughness:0.8});
+
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.1, 2.2), frameMat);
+      frame.position.y = 0.22;
+      const headRest = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.1, 0.9), fabricMat);
+      headRest.position.set(0, 0.55, -0.6);
+      headRest.rotation.x = -0.45;
+      const cushion = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.12, 1.4), fabricMat);
+      cushion.position.set(0, 0.26, 0.35);
+
+      g.add(frame, headRest, cushion);
+      g.position.set(x, 0, z);
+      g.rotation.y = rotY;
+      beachGroup.add(g);
+    }
+    makeDeckChair(-49, 42, 0.3, 0xff3b77);
+    makeDeckChair(-32, 46, -0.2, 0x3bb8ff);
+    makeDeckChair(-12, 42, 0.1, 0x4dd98b);
+
+    // --- Beach Towels with Drinks on Sand (Image 2) ---
+    function makeBeachTowel(x, z, rotY, color){
+      const g = new THREE.Group();
+      const towel = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.2), new THREE.MeshStandardMaterial({color:color, roughness:0.9}));
+      towel.rotation.x = -Math.PI/2;
+      towel.position.y = 0.05;
+      // Cold drink coconut with straw
+      const drink = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), new THREE.MeshStandardMaterial({color:0x5e3518}));
+      drink.position.set(0.4, 0.18, -0.7);
+      g.add(towel, drink);
+      g.position.set(x, 0, z);
+      g.rotation.y = rotY;
+      beachGroup.add(g);
+    }
+    makeBeachTowel(-55, 38, 0.4, 0x3bb8ff);
+    makeBeachTowel(-26, 40, -0.3, 0xff85c0);
+
+    // --- Inflatable Swim Rings floating on Water (Image 2) ---
+    function makeSwimRing(x, z, color){
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(0.7, 0.26, 12, 24),
+        new THREE.MeshStandardMaterial({color:color, roughness:0.3})
+      );
+      ring.rotation.x = Math.PI/2;
+      ring.position.set(x, 0.15, z);
+      beachGroup.add(ring);
+      animatedSwimRings.push({mesh: ring, baseX: x, baseZ: z, phase: Math.random()*Math.PI*2});
+    }
+    makeSwimRing(-50, 72, 0xff4d88);
+    makeSwimRing(-38, 82, 0xffd23f);
+    makeSwimRing(-20, 75, 0x38d9a4);
+
+    // --- Wooden Pier / Boardwalk extending into Ocean (Image 2) ---
+    function makeWoodenPier(startX, startZ, length){
+      const g = new THREE.Group();
+      const woodMat = new THREE.MeshStandardMaterial({color:0x875d38, roughness:0.85});
+      // Walkway planks
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.2, length), woodMat);
+      deck.position.set(0, 0.5, length/2);
+      deck.castShadow = true;
+      deck.receiveShadow = true;
+      g.add(deck);
+
+      // Support Pilings into water
+      for(let p = 2; p <= length - 2; p += 4.5){
+        const pilL = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 2.2, 8), woodMat);
+        pilL.position.set(-1.6, -0.4, p);
+        const pilR = pilL.clone(); pilR.position.x = 1.6;
+        g.add(pilL, pilR);
+      }
+      g.position.set(startX, 0, startZ);
+      beachGroup.add(g);
+    }
+    makeWoodenPier(-42, 50, 24);
+
+    // --- Motorboat docked at Pier (Image 2) ---
+    function makeMotorboat(x, z){
+      const g = new THREE.Group();
+      const hullMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.4});
+      const stripeMat = new THREE.MeshStandardMaterial({color:0x2277cc, roughness:0.5});
+      const glassMat = new THREE.MeshStandardMaterial({color:0x5fb6ff, transparent:true, opacity:0.7});
+
+      const hull = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.8, 5.0), hullMat);
+      hull.position.y = 0.2;
+      hull.castShadow = true;
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(2.25, 0.2, 4.8), stripeMat);
+      stripe.position.y = 0.45;
+      const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 1.6), glassMat);
+      cabin.position.set(0, 0.85, 0.5);
+      const motor = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.5), new THREE.MeshStandardMaterial({color:0x222428}));
+      motor.position.set(0, 0.4, -2.5);
+
+      g.add(hull, stripe, cabin, motor);
+      g.position.set(x, 0.1, z);
+      g.rotation.y = 0.35;
+      beachGroup.add(g);
+    }
+    makeMotorboat(-37, 68);
+
+    // --- Tiki Lifeguard Shack & Surfboards (Image 2) ---
+    function makeLifeguardHut(x, z){
+      const g = new THREE.Group();
+      const woodMat = new THREE.MeshStandardMaterial({color:0xa36c3e, roughness:0.9});
+      const thatchMat = new THREE.MeshStandardMaterial({color:0xd4af37, roughness:0.9});
+
+      // 4 Stilts
+      for(let sx of [-1.4, 1.4]){
+        for(let sz of [-1.4, 1.4]){
+          const stilt = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.8), woodMat);
+          stilt.position.set(sx, 0.9, sz);
+          g.add(stilt);
+        }
+      }
+      // Hut floor & walls
+      const hut = new THREE.Mesh(new THREE.BoxGeometry(3.0, 2.0, 3.0), woodMat);
+      hut.position.y = 2.6;
+      hut.castShadow = true;
+      // Thatched pyramidal roof
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(2.8, 1.4, 4), thatchMat);
+      roof.position.y = 4.2;
+      roof.rotation.y = Math.PI/4;
+      roof.castShadow = true;
+      g.add(hut, roof);
+
+      // Surfboards leaning against hut
+      const boardColors = [0xff3b5c, 0xffd23f, 0x4dd98b];
+      boardColors.forEach((col, idx)=>{
+        const surf = new THREE.Mesh(
+          new THREE.BoxGeometry(0.55, 2.4, 0.08),
+          new THREE.MeshStandardMaterial({color:col, roughness:0.4})
+        );
+        surf.position.set(-1.6, 1.2, -0.8 + idx*0.7);
+        surf.rotation.z = -0.18;
+        surf.castShadow = true;
+        g.add(surf);
+      });
+
+      g.position.set(x, 0, z);
+      beachGroup.add(g);
+    }
+    makeLifeguardHut(-66, 48);
+
+    // Cruise ship in far distance
+    const cruise = new THREE.Mesh(new THREE.BoxGeometry(16, 6, 42), new THREE.MeshStandardMaterial({color:0xf0f3f8}));
+    cruise.position.set(40, 2.5, 140);
+    cruise.rotation.y = -0.3;
+    beachGroup.add(cruise);
+
+    scene.add(beachGroup);
+  }
+  buildBeachDistrict();
+
+  // ------------------------------------------
+  // 3. FARM & NATURE DISTRICT (Inspired by Image 3)
+  // ------------------------------------------
+  function buildFarmDistrict(){
+    const farmGroup = new THREE.Group();
+    const woodFenceMat = new THREE.MeshStandardMaterial({color:0x9e6a3d, roughness:0.9});
+
+    // Wooden Post-and-Rail Fence Enclosure
+    function makeFenceLine(startX, startZ, endX, endZ){
+      const dx = endX - startX, dz = endZ - startZ;
+      const len = Math.hypot(dx, dz);
+      const angle = Math.atan2(dx, dz);
+      for(let d = 0; d <= len; d += 3.2){
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 1.4, 8), woodFenceMat);
+        post.position.set(startX + (dx/len)*d, 0.7, startZ + (dz/len)*d);
+        post.castShadow = true;
+        farmGroup.add(post);
+      }
+      const rail1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, len), woodFenceMat);
+      rail1.position.set(startX + dx/2, 0.95, startZ + dz/2);
+      rail1.rotation.y = angle;
+      const rail2 = rail1.clone();
+      rail2.position.y = 0.5;
+      farmGroup.add(rail1, rail2);
+    }
+    makeFenceLine(20, -60, 75, -60);
+    makeFenceLine(75, -60, 75, 20);
+    makeFenceLine(75, 20, 20, 20);
+    makeFenceLine(20, 20, 20, -25); // Leaves entrance gap to city
+
+    // --- Dairy Cow (Image 3) ---
+    function makeCow(x, z, rotY){
+      const cow = new THREE.Group();
+      const whiteMat = new THREE.MeshStandardMaterial({color:0xffffff, roughness:0.8});
+      const blackMat = new THREE.MeshStandardMaterial({color:0x222226, roughness:0.8});
+      const pinkMat = new THREE.MeshStandardMaterial({color:0xffa8b8, roughness:0.8});
+
+      // Body (white with black patches)
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.4, 2.6), whiteMat);
+      body.position.y = 1.6;
+      body.castShadow = true;
+      const patch1 = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.9, 1.2), blackMat);
+      patch1.position.set(0.42, 1.8, 0.2);
+      cow.add(body, patch1);
+
+      // Head
+      const headGroup = new THREE.Group();
+      headGroup.position.set(0, 2.1, 1.5);
+      const head = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.1, 1.2), whiteMat);
+      head.castShadow = true;
+      const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.55, 0.5), pinkMat);
+      muzzle.position.set(0, -0.3, 0.7);
+      // Horns
+      const hornL = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.4, 5), new THREE.MeshStandardMaterial({color:0xdec9a2}));
+      hornL.position.set(-0.5, 0.65, 0.1);
+      hornL.rotation.z = -0.3;
+      const hornR = hornL.clone(); hornR.position.x = 0.5; hornR.rotation.z = 0.3;
+      // Floppy Ears
+      const earL = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.15, 0.2), blackMat);
+      earL.position.set(-0.65, 0.3, 0);
+      const earR = earL.clone(); earR.position.x = 0.65;
+
+      headGroup.add(head, muzzle, hornL, hornR, earL, earR);
+      cow.add(headGroup);
+
+      // 4 Legs
+      for(let lx of [-0.6, 0.6]){
+        for(let lz of [-0.8, 0.8]){
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.16, 1.1, 8), whiteMat);
+          leg.position.set(lx, 0.55, lz);
+          leg.castShadow = true;
+          const hoof = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.19, 0.2, 8), blackMat);
+          hoof.position.set(lx, 0.1, lz);
+          cow.add(leg, hoof);
+        }
+      }
+
+      cow.position.set(x, 0, z);
+      cow.rotation.y = rotY;
+      farmGroup.add(cow);
+      animatedAnimals.push({type:'cow', head:headGroup, timer:Math.random()*5});
+    }
+    makeCow(36, -25, 0.8);
+    makeCow(52, -45, -0.4);
+
+    // --- Fluffy Sheep (Image 3) ---
+    function makeSheep(x, z, rotY){
+      const sheep = new THREE.Group();
+      const woolMat = new THREE.MeshStandardMaterial({color:0xfcfcfa, roughness:1.0});
+      const skinMat = new THREE.MeshStandardMaterial({color:0x332822, roughness:0.8});
+
+      // Puffy cloud-like wool body
+      const body = new THREE.Mesh(new THREE.SphereGeometry(1.0, 16, 12), woolMat);
+      body.scale.set(1.1, 1.0, 1.4);
+      body.position.y = 1.25;
+      body.castShadow = true;
+      sheep.add(body);
+
+      // Dark cute head
+      const headGroup = new THREE.Group();
+      headGroup.position.set(0, 1.45, 1.1);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.48, 12, 10), skinMat);
+      const earL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.12, 0.15), skinMat);
+      earL.position.set(-0.45, 0.1, 0);
+      const earR = earL.clone(); earR.position.x = 0.45;
+      headGroup.add(head, earL, earR);
+      sheep.add(headGroup);
+
+      // 4 Little legs
+      for(let lx of [-0.42, 0.42]){
+        for(let lz of [-0.5, 0.5]){
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.10, 0.8, 8), skinMat);
+          leg.position.set(lx, 0.4, lz);
+          leg.castShadow = true;
+          sheep.add(leg);
+        }
+      }
+
+      sheep.position.set(x, 0, z);
+      sheep.rotation.y = rotY;
+      farmGroup.add(sheep);
+      animatedAnimals.push({type:'sheep', head:headGroup, timer:Math.random()*5});
+    }
+    makeSheep(48, -10, 1.2);
+    makeSheep(65, -30, -1.8);
+
+    // --- Mother Chicken & Baby Chicks (Image 3) ---
+    function makeChicken(x, z){
+      const hen = new THREE.Group();
+      const henBody = new THREE.Mesh(new THREE.SphereGeometry(0.42, 12, 10), new THREE.MeshStandardMaterial({color:0xffffff}));
+      henBody.position.y = 0.55;
+      henBody.scale.set(0.9, 1.1, 1.2);
+      const comb = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.22, 0.25), new THREE.MeshStandardMaterial({color:0xff2222}));
+      comb.position.set(0, 0.95, 0.2);
+      const beak = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.25, 4), new THREE.MeshStandardMaterial({color:0xffaa00}));
+      beak.rotation.x = Math.PI/2;
+      beak.position.set(0, 0.65, 0.5);
+      hen.add(henBody, comb, beak);
+      hen.position.set(x, 0, z);
+      farmGroup.add(hen);
+      animatedAnimals.push({type:'chicken', mesh:hen, baseY:0.55, timer:Math.random()*4});
+
+      // 3 Tiny yellow baby chicks pecking nearby
+      for(let c=0; c<3; c++){
+        const chick = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), new THREE.MeshStandardMaterial({color:0xffdd33}));
+        chick.position.set(x + (c-1)*0.7, 0.18, z + 0.6 + Math.random()*0.4);
+        farmGroup.add(chick);
+      }
+    }
+    makeChicken(32, -8);
+
+    // --- Chestnut Horse (Image 3) ---
+    function makeHorse(x, z, rotY){
+      const horse = new THREE.Group();
+      const horseMat = new THREE.MeshStandardMaterial({color:0x854a2a, roughness:0.75});
+      const maneMat = new THREE.MeshStandardMaterial({color:0x3b1e10, roughness:0.9});
+
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 2.8), horseMat);
+      body.position.y = 1.9;
+      body.castShadow = true;
+
+      // Neck & Head
+      const neck = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.6, 0.9), horseMat);
+      neck.position.set(0, 2.8, 1.2);
+      neck.rotation.x = -0.4;
+      const head = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.7, 1.3), horseMat);
+      head.position.set(0, 3.4, 1.8);
+      const mane = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.8, 0.4), maneMat);
+      mane.position.set(0, 3.0, 0.8);
+      horse.add(body, neck, head, mane);
+
+      // 4 Slender Legs
+      for(let lx of [-0.55, 0.55]){
+        for(let lz of [-1.0, 1.0]){
+          const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.12, 1.6, 8), horseMat);
+          leg.position.set(lx, 0.8, lz);
+          leg.castShadow = true;
+          horse.add(leg);
+        }
+      }
+      horse.position.set(x, 0, z);
+      horse.rotation.y = rotY;
+      farmGroup.add(horse);
+    }
+    makeHorse(62, -15, -0.6);
+
+    scene.add(farmGroup);
+  }
+  buildFarmDistrict();
+
+  // ------------------------------------------
+  // 4. CUTE PET COMPANION (Inspired by Image 3 Puppy)
+  // ------------------------------------------
+  function createPetPuppy(){
+    const pet = new THREE.Group();
+    const creamMat = new THREE.MeshStandardMaterial({color:0xffefdc, roughness:0.85});
+    const tanMat = new THREE.MeshStandardMaterial({color:0xd6995c, roughness:0.85});
+    const darkMat = new THREE.MeshStandardMaterial({color:0x222226, roughness:0.6});
+    const blushMat = new THREE.MeshStandardMaterial({color:0xff8899, transparent:true, opacity:0.6});
+
+    // Cute chubby body
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 12), creamMat);
+    body.position.y = 0.45;
+    body.scale.set(1.0, 0.95, 1.2);
+    body.castShadow = true;
+    // Caramel back spot
+    const spot = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), tanMat);
+    spot.position.set(0.22, 0.6, -0.1);
+    pet.add(body, spot);
+
+    // Large Chibi Head
+    const head = new THREE.Group();
+    head.position.set(0, 0.85, 0.35);
+    const headSphere = new THREE.Mesh(new THREE.SphereGeometry(0.44, 20, 16), creamMat);
+    headSphere.castShadow = true;
+    head.add(headSphere);
+
+    // Floppy Caramel Ears (Image 3)
+    const earL = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), tanMat);
+    earL.scale.set(0.6, 1.4, 0.9);
+    earL.position.set(-0.42, 0.05, 0);
+    earL.rotation.z = 0.35;
+    const earR = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 10), tanMat);
+    earR.scale.set(0.6, 1.4, 0.9);
+    earR.position.set(0.42, 0.05, 0);
+    earR.rotation.z = -0.35;
+    head.add(earL, earR);
+
+    // Cute Eyes & Nose
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 8), darkMat);
+    eyeL.position.set(-0.16, 0.06, 0.4);
+    const eyeR = eyeL.clone(); eyeR.position.x = 0.16;
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), darkMat);
+    nose.position.set(0, -0.04, 0.45);
+    const blushL = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.09), blushMat);
+    blushL.position.set(-0.24, -0.05, 0.41);
+    const blushR = blushL.clone(); blushR.position.x = 0.24;
+    head.add(eyeL, eyeR, nose, blushL, blushR);
+    pet.add(head);
+
+    // 4 Cute Stubby Paws
+    const paws = [];
+    for(let px of [-0.22, 0.22]){
+      for(let pz of [-0.25, 0.25]){
+        const paw = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), creamMat);
+        paw.position.set(px, 0.12, pz);
+        paw.castShadow = true;
+        pet.add(paw);
+        paws.push(paw);
+      }
+    }
+
+    // Wagging Puppy Tail
+    const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.35, 8), creamMat);
+    tail.position.set(0, 0.55, -0.45);
+    tail.rotation.x = -Math.PI/3;
+    pet.add(tail);
+
+    pet.position.set(1.6, 0, 11.5);
+    scene.add(pet);
+
+    return {mesh: pet, head, tail, paws, walkT:0};
+  }
+  petCompanion = createPetPuppy();
+
+  
+  // =========================================================================
+  // 100-LEVEL PROGRESSION & REWARD SYSTEM (COMPLETE ENGINE & DATABASE)
+  // =========================================================================
+
+  // -------------------------------------------------------------
+  // 1. OUTIFTS / DRESSES DATABASE (14 Milestone Outfits)
+  // -------------------------------------------------------------
+  const DRESSES_DB = [
+    { id: 'starter', name: 'Pirate Classic', level: 1, icon: '🏴‍☠️', desc: 'Classic blue pirate waistcoat & red bandana', color: 0x2d75b3 },
+    { id: 'tshirt', name: 'Casual Street T-Shirt', level: 5, icon: '👕', desc: 'Modern crimson streetwear graphic t-shirt', color: 0xef4444 },
+    { id: 'sneakers', name: 'Urban Runner Sneakers', level: 10, icon: '👟', desc: 'Aerodynamic red & white high-top sneakers', color: 0xff3366 },
+    { id: 'hair', name: 'Anime Spiky Hairstyle', level: 15, icon: '💇', desc: 'Cool golden-caramel spiky anime hair', color: 0xf59e0b },
+    { id: 'hoodie', name: 'Premium Streetwear Hoodie', level: 20, icon: '🧥', desc: 'Black & crimson designer hoodie with chains', color: 0x1e1b4b },
+    { id: 'sunglasses', name: 'Cyber Sunglasses', level: 25, icon: '🕶️', desc: 'Neon reflective dark cybernetic sunglasses', color: 0x06b6d4 },
+    { id: 'jacket', name: 'Neon Biker Leather Jacket', level: 30, icon: '🏍️', desc: 'Midnight black leather jacket with neon trim', color: 0x111827 },
+    { id: 'royal', name: 'Royal Prince Cloak & Robe', level: 40, icon: '👑', desc: 'Majestic purple robes with gold lace & cape', color: 0x7c3aed },
+    { id: 'superhero', name: 'Cosmic Superhero Suit', level: 50, icon: '🦸', desc: 'Glowing spandex armor with glowing chest crest', color: 0x2563eb },
+    { id: 'luxury', name: 'Luxury Cyber Velvet Suit', level: 60, icon: '🤵', desc: 'High-society futuristic glowing velvet tuxedo', color: 0x4f46e5 },
+    { id: 'ninja', name: 'Shadow Ninja Shinobi Wrap', level: 70, icon: '🥷', desc: 'Stealth midnight black assassin robes', color: 0x0f172a },
+    { id: 'armor', name: 'Golden Dragon Knight Armor', level: 80, icon: '🛡️', desc: 'Gilded dragonscale heavy battleplate armor', color: 0xd97706 },
+    { id: 'astral', name: 'Galaxy Astral Robes', level: 90, icon: '🌌', desc: 'Cosmic starlight robes radiating astral energy', color: 0x9333ea },
+    { id: 'ultimate', name: 'Ultimate Champion Regalia', level: 100, icon: '⚡', desc: 'Legendary golden armored regalia with wings & halo!', color: 0xffd23f }
+  ];
+
+  // -------------------------------------------------------------
+  // 2. SPECIAL POWERS DATABASE (10 Milestone Powers)
+  // -------------------------------------------------------------
+  const POWERS_DB = [
+    { id: 'speed', name: 'Speed Boost', level: 10, key: '1', icon: '🏃', duration: 12, cooldown: 20, desc: 'Doubles movement velocity with cyan wind trails' },
+    { id: 'jump', name: 'Super Jump', level: 20, key: '2', icon: '🦘', duration: 15, cooldown: 22, desc: 'High leap & mid-air golden shockwave jump' },
+    { id: 'fastrun', name: 'Fast Running', level: 30, key: '1', icon: '⚡', duration: 14, cooldown: 20, desc: 'Enhanced sprint speed with kinetic sparks' },
+    { id: 'doublejump', name: 'Double Jump', level: 40, key: '2', icon: '✨', duration: 18, cooldown: 25, desc: 'Jump a second time while airborne with light rings' },
+    { id: 'fly', name: 'Flying Power', level: 50, key: '4', icon: '🦅', duration: 16, cooldown: 35, desc: 'Defy gravity! Free 3D flight with radiant energy wings' },
+    { id: 'invisible', name: 'Invisible Mode', level: 60, key: '3', icon: '👻', duration: 12, cooldown: 30, desc: 'Ghostly translucent stealth cloak' },
+    { id: 'superspeed', name: 'Super Speed', level: 70, key: '1', icon: '🚀', duration: 14, cooldown: 24, desc: 'Supersonic sprint velocity with lightning trails' },
+    { id: 'shield', name: 'Energy Shield', level: 80, key: '3', icon: '🛡️', duration: 15, cooldown: 30, desc: 'Pulsing hexagonal invulnerability forcefield' },
+    { id: 'legendary', name: 'Legendary Power', level: 90, key: '4', icon: '🌟', duration: 20, cooldown: 40, desc: 'Cosmic radiant aura & enhanced flight speed' },
+    { id: 'ultimate', name: 'Ultimate Super Power', level: 100, key: '4', icon: '👑', duration: 25, cooldown: 45, desc: 'Omni-power! Permanent flight, rainbow aura & lightning' }
+  ];
+
+  // -------------------------------------------------------------
+  // 3. 100-LEVEL MISSIONS DATABASE (10 Diverse Tiers)
+  // -------------------------------------------------------------
+  const MISSIONS_DB = [];
+
+  // Locations / Waypoints in the 3D world
+  const WORLD_LOCATIONS = {
+    city_center: {x: -40, y: 0.5, z: 0, name: 'City Crosswalk Center'},
+    bus_stop: {x: -25, y: 0.5, z: 10.5, name: 'Modern Bus Shelter'},
+    kiosk: {x: -14, y: 0.5, z: 10.5, name: 'Digital Information Kiosk'},
+    terracotta_roof: {x: -20, y: 6.5, z: -18, name: 'Terracotta Balcony'},
+    green_cafe: {x: -76, y: 0.5, z: -18, name: 'Emerald Green Cafe'},
+    beach_pier: {x: -42, y: 0.6, z: 70, name: 'Ocean Pier Head'},
+    beach_shore: {x: -35, y: 0.2, z: 40, name: 'Golden Beach Shore'},
+    tiki_hut: {x: -66, y: 1.0, z: 48, name: 'Tiki Lifeguard Hut'},
+    motorboat: {x: -37, y: 0.3, z: 68, name: 'Docked Motorboat'},
+    pink_ring: {x: -50, y: 0.2, z: 72, name: 'Floating Pink Swim Ring'},
+    farm_gate: {x: 20, y: 0.5, z: -5, name: 'Farm Pasture Gate'},
+    cow_pen: {x: 36, y: 0.5, z: -25, name: 'Dairy Cow Meadow'},
+    sheep_meadow: {x: 48, y: 0.5, z: -10, name: 'Fluffy Sheep Meadow'},
+    chicken_coop: {x: 32, y: 0.5, z: -8, name: 'Hen & Chicks Yard'},
+    horse_stable: {x: 62, y: 0.5, z: -15, name: 'Chestnut Horse Meadow'},
+    highrise_roof: {x: -70, y: 15.0, z: -38, name: 'Highrise Summit'}
+  };
+
+  function generate100Missions(){
+    for(let lvl = 1; lvl <= 100; lvl++){
+      let m = {
+        level: lvl,
+        title: '',
+        desc: '',
+        type: 'coins', // coins, location, jumps, pet, power, speedrun, level100
+        target: 10,
+        timeLimit: null,
+        coinsReward: 150 + lvl * 35,
+        gemsReward: Math.max(5, Math.floor(lvl / 2) * 5),
+        dressUnlock: null,
+        powerUnlock: null,
+        waypoint: null
+      };
+
+      // Milestone Rewards
+      if(lvl === 5) m.dressUnlock = 'tshirt';
+      if(lvl === 10) { m.dressUnlock = 'sneakers'; m.powerUnlock = 'speed'; }
+      if(lvl === 15) m.dressUnlock = 'hair';
+      if(lvl === 20) { m.dressUnlock = 'hoodie'; m.powerUnlock = 'jump'; }
+      if(lvl === 25) m.dressUnlock = 'sunglasses';
+      if(lvl === 30) { m.dressUnlock = 'jacket'; m.powerUnlock = 'fastrun'; }
+      if(lvl === 40) { m.dressUnlock = 'royal'; m.powerUnlock = 'doublejump'; }
+      if(lvl === 50) { m.dressUnlock = 'superhero'; m.powerUnlock = 'fly'; }
+      if(lvl === 60) { m.dressUnlock = 'luxury'; m.powerUnlock = 'invisible'; }
+      if(lvl === 70) { m.dressUnlock = 'ninja'; m.powerUnlock = 'superspeed'; }
+      if(lvl === 80) { m.dressUnlock = 'armor'; m.powerUnlock = 'shield'; }
+      if(lvl === 90) { m.dressUnlock = 'astral'; m.powerUnlock = 'legendary'; }
+      if(lvl === 100) { m.dressUnlock = 'ultimate'; m.powerUnlock = 'ultimate'; }
+
+      // --- Tier 1: Levels 1–10 (Beginner Tasks) ---
+      if(lvl === 1) {
+        m.title = 'Welcome to BlockWorld: Collect 10 Coins';
+        m.desc = 'Explore the vibrant world and collect 10 glowing gems to begin your journey!';
+        m.type = 'coins'; m.target = 10;
+      } else if(lvl === 2) {
+        m.title = 'Puppy Companion: Pet Your Puppy';
+        m.desc = 'Walk up close to your cute puppy companion following you!';
+        m.type = 'pet_puppy'; m.target = 1;
+      } else if(lvl === 3) {
+        m.title = 'City Explorer: Visit the Bus Shelter';
+        m.desc = 'Walk over to the modern glass bus shelter located on the city boulevard.';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.bus_stop; m.target = 1;
+      } else if(lvl === 4) {
+        m.title = 'Treasure Hunter: Collect 25 Coins';
+        m.desc = 'Search through city sidewalks and beach sand to collect 25 coins.';
+        m.type = 'coins'; m.target = 25;
+      } else if(lvl === 5) {
+        m.title = 'Beach Breeze: Visit the Golden Shore';
+        m.desc = 'Walk down to the tropical sandy beach shore to claim your Level 5 T-Shirt!';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.beach_shore; m.target = 1;
+      } else if(lvl === 6) {
+        m.title = 'Pier Walker: Reach the Ocean Pier';
+        m.desc = 'Walk out to the end of the wooden pier extending into the crystal blue sea.';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.beach_pier; m.target = 1;
+      } else if(lvl === 7) {
+        m.title = 'Friendly Farmer: Visit the Dairy Cow';
+        m.desc = 'Head east into the green pasture and approach the grazing black & white cow.';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.cow_pen; m.target = 1;
+      } else if(lvl === 8) {
+        m.title = 'Jump Master: Perform 15 Jumps';
+        m.desc = 'Use your spacebar or jump button to jump 15 times anywhere in the world!';
+        m.type = 'jumps'; m.target = 15;
+      } else if(lvl === 9) {
+        m.title = 'Coin Collector: Collect 50 Coins';
+        m.desc = 'Gather 50 gold coins from gems scattered around the world.';
+        m.type = 'coins'; m.target = 50;
+      } else if(lvl === 10) {
+        m.title = 'City Dash: Cross the Boulevard in 45s';
+        m.desc = 'Sprint from the crossroads to the bus stop within 45s to unlock SPEED BOOST!';
+        m.type = 'speedrun'; m.timeLimit = 45; m.waypoint = WORLD_LOCATIONS.bus_stop; m.target = 1;
+      }
+
+      // --- Tier 2: Levels 11–20 (Basic Challenges) ---
+      else if(lvl === 11) {
+        m.title = 'Speed Test: Activate Speed Boost';
+        m.desc = 'Press key [1] or tap Speed to activate your brand new Speed Boost power!';
+        m.type = 'use_power'; m.target = 1;
+      } else if(lvl === 12) {
+        m.title = 'Fluffy Friend: Pet the Sheep';
+        m.desc = 'Visit the fluffy white sheep grazing in the peaceful farm meadow.';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.sheep_meadow; m.target = 1;
+      } else if(lvl === 13) {
+        m.title = 'Beach Patrol: Inspect the Tiki Hut';
+        m.desc = 'Climb up to the wooden Tiki Lifeguard Hut and check out the colorful surfboards.';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.tiki_hut; m.target = 1;
+      } else if(lvl === 14) {
+        m.title = 'Crosswalk Patrol: Visit Center Intersection';
+        m.desc = 'Walk through the center crosswalk intersection where the traffic lights shine.';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.city_center; m.target = 1;
+      } else if(lvl === 15) {
+        m.title = 'Current Task: Collect 100 Coins';
+        m.desc = 'Find and collect 100 coins in the game world to unlock the Anime Hairstyle!';
+        m.type = 'coins'; m.target = 100;
+      } else if(lvl === 16) {
+        m.title = 'Farmyard Fun: Visit Mother Chicken';
+        m.desc = 'Approach the white mother hen and watch her yellow chicks pecking around.';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.chicken_coop; m.target = 1;
+      } else if(lvl === 17) {
+        m.title = 'Speedboat Inspection: Board Motorboat';
+        m.desc = 'Jump onto the deck of the sleek motorboat docked by the wooden pier.';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.motorboat; m.target = 1;
+      } else if(lvl === 18) {
+        m.title = 'High Velocity: Perform 20 Jumps';
+        m.desc = 'Keep active! Perform 20 leaps across any terrain.';
+        m.type = 'jumps'; m.target = 20;
+      } else if(lvl === 19) {
+        m.title = 'Cafe Visitor: Visit Emerald Cafe';
+        m.desc = 'Stop by the outdoor cafe tables in front of the emerald green building.';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.green_cafe; m.target = 1;
+      } else if(lvl === 20) {
+        m.title = 'The Grand Sprint: East to West in 35s';
+        m.desc = 'Sprint the entire boulevard before time expires to unlock SUPER JUMP & HOODIE!';
+        m.type = 'speedrun'; m.timeLimit = 35; m.waypoint = WORLD_LOCATIONS.green_cafe; m.target = 1;
+      }
+
+      // --- Tier 3: Levels 21–30 (Medium Missions) ---
+      else if(lvl === 21) {
+        m.title = 'Super Leap: Use Super Jump';
+        m.desc = 'Activate Super Jump [2] and feel the explosive vertical thrust!';
+        m.type = 'use_power'; m.target = 1;
+      } else if(lvl === 22) {
+        m.title = 'Ocean Swimmer: Reach the Pink Float';
+        m.desc = 'Take a dip in the warm crystal ocean and swim out to the pink donut ring!';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.pink_ring; m.target = 1;
+      } else if(lvl === 23) {
+        m.title = 'Majestic Stallion: Visit the Horse';
+        m.desc = 'Head deep into the farm pasture to meet the noble chestnut horse.';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.horse_stable; m.target = 1;
+      } else if(lvl === 24) {
+        m.title = 'Coin Bonanza: Collect 75 Coins';
+        m.desc = 'Gather 75 coins from the streets, boardwalk, and pastures.';
+        m.type = 'coins'; m.target = 75;
+      } else if(lvl === 25) {
+        m.title = 'Kiosk Check: Visit Digital Billboard';
+        m.desc = 'Inspect the glowing digital billboard kiosk to unlock Cyber Sunglasses!';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.kiosk; m.target = 1;
+      } else if(lvl === 26) {
+        m.title = 'Acrobatic Leap: Perform 30 Jumps';
+        m.desc = 'Practice your parkour by leaping 30 times.';
+        m.type = 'jumps'; m.target = 30;
+      } else if(lvl === 27) {
+        m.title = 'Beachcomber: Collect 120 Coins';
+        m.desc = 'Collect 120 coins across the tropical sands and city.';
+        m.type = 'coins'; m.target = 120;
+      } else if(lvl === 28) {
+        m.title = 'Balcony Climb: Reach Terracotta Ledge';
+        m.desc = 'Use your super jump to leap onto the lower balcony of the terracotta building!';
+        m.type = 'location'; m.waypoint = WORLD_LOCATIONS.terracotta_roof; m.target = 1;
+      } else if(lvl === 29) {
+        m.title = 'Rapid Dash: Speedrun to Pier in 30s';
+        m.desc = 'Run from the city center to the pier head before the clock hits zero!';
+        m.type = 'speedrun'; m.timeLimit = 30; m.waypoint = WORLD_LOCATIONS.beach_pier; m.target = 1;
+      } else if(lvl === 30) {
+        m.title = 'Championship Lap: Cross Boulevard in 25s';
+        m.desc = 'Sprint across the avenue at full speed to unlock BIKER JACKET & FAST RUNNING!';
+        m.type = 'speedrun'; m.timeLimit = 25; m.waypoint = WORLD_LOCATIONS.city_center; m.target = 1;
+      }
+
+      // --- Tiers 4 to 10 (Levels 31 to 99) ---
+      else if(lvl < 100) {
+        const tier = Math.ceil(lvl / 10);
+        const subIndex = lvl % 10;
+        const targetCoins = 50 + lvl * 5;
+        const targetJumps = 20 + Math.floor(lvl / 3);
+
+        if(subIndex === 1) {
+          m.title = 'Power Surge ' + lvl + ': Activate Powers';
+          m.desc = 'Activate any of your unlocked special powers to channel your inner strength.';
+          m.type = 'use_power'; m.target = 1;
+        } else if(subIndex === 2 || subIndex === 7) {
+          const locKeys = Object.keys(WORLD_LOCATIONS);
+          const pickLoc = WORLD_LOCATIONS[locKeys[lvl % locKeys.length]];
+          m.title = 'District Patrol ' + lvl + ': Visit ' + pickLoc.name;
+          m.desc = 'Navigate through the world and reach ' + pickLoc.name + '.';
+          m.type = 'location'; m.waypoint = pickLoc; m.target = 1;
+        } else if(subIndex === 3 || subIndex === 8) {
+          m.title = 'Acrobatic Trial ' + lvl + ': Perform ' + targetJumps + ' Jumps';
+          m.desc = 'Show off your agility by completing ' + targetJumps + ' jumps.';
+          m.type = 'jumps'; m.target = targetJumps;
+        } else if(subIndex === 4 || subIndex === 9) {
+          m.title = 'Time Trial ' + lvl + ': Dash to Destination in 40s';
+          const locKeys = Object.keys(WORLD_LOCATIONS);
+          const pickLoc = WORLD_LOCATIONS[locKeys[(lvl * 3) % locKeys.length]];
+          m.desc = 'Race against time to reach ' + pickLoc.name + ' before 40 seconds expire!';
+          m.type = 'speedrun'; m.timeLimit = 40; m.waypoint = pickLoc; m.target = 1;
+        } else {
+          // Milestone or coin task
+          m.title = 'Grand Collection ' + lvl + ': Collect ' + targetCoins + ' Coins';
+          m.desc = 'Collect ' + targetCoins + ' coins across the three lively districts.';
+          m.type = 'coins'; m.target = targetCoins;
+        }
+      }
+
+      // --- Level 100: ULTIMATE FINAL MISSION ---
+      else if(lvl === 100) {
+        m.title = 'THE ULTIMATE CHAMPIONSHIP: Rise of the Level 100 Champion!';
+        m.desc = 'The ultimate trial! Collect 100 golden coins, activate all your powers, and ascend to the Highrise Summit to claim the Legendary Champion Regalia & Golden Trophy!';
+        m.type = 'level_100_final';
+        m.target = 100;
+        m.timeLimit = 180; // 3 minutes epic timer
+        m.waypoint = WORLD_LOCATIONS.highrise_roof;
+        m.coinsReward = 25000;
+        m.gemsReward = 1000;
+        m.dressUnlock = 'ultimate';
+        m.powerUnlock = 'ultimate';
+      }
+
+      MISSIONS_DB.push(m);
+    }
+  }
+  generate100Missions();
+
+  // -------------------------------------------------------------
+  // 4. PROGRESSION STATE & STORAGE MANAGER
+  // -------------------------------------------------------------
+  const ProgressionManager = {
+    currentLevel: 1,
+    coins: 12500,
+    gems: 250,
+    energy: 50,
+    maxEnergy: 50,
+    completedLevels: [],
+    unlockedDresses: ['starter'],
+    equippedDress: 'starter',
+    unlockedPowers: [],
+    activePowers: {}, // powerId -> remainingSeconds
+    powerCooldowns: {}, // powerId -> remainingSeconds
+    dailyStreak: 1,
+    lastDailyClaim: 0,
+    missionProgress: 0,
+    missionTimer: 0,
+    missionActive: false,
+
+    init(){
+      this.load();
+      this.renderTopBar();
+      this.renderMissionCard();
+      this.renderRoadmap();
+      this.renderBottomStats();
+      this.renderPowersHUD();
+      this.setupEventListeners();
+      this.applyEquippedDress3D();
+
+      // Check URL query param or dev cheat if needed
+      console.log('Progression System initialized at Level', this.currentLevel);
+    },
+
+    save(){
+      const data = {
+        currentLevel: this.currentLevel,
+        coins: this.coins,
+        gems: this.gems,
+        energy: this.energy,
+        completedLevels: this.completedLevels,
+        unlockedDresses: this.unlockedDresses,
+        equippedDress: this.equippedDress,
+        unlockedPowers: this.unlockedPowers,
+        dailyStreak: this.dailyStreak,
+        lastDailyClaim: this.lastDailyClaim
+      };
+      try { localStorage.setItem('blockworld_progression_save', JSON.stringify(data)); } catch(e){}
+    },
+
+    load(){
+      try {
+        const raw = localStorage.getItem('blockworld_progression_save');
+        if(raw){
+          const d = JSON.parse(raw);
+          this.currentLevel = d.currentLevel || 1;
+          this.coins = d.coins !== undefined ? d.coins : 12500;
+          this.gems = d.gems !== undefined ? d.gems : 250;
+          this.energy = d.energy !== undefined ? d.energy : 50;
+          this.completedLevels = Array.isArray(d.completedLevels) ? d.completedLevels : [];
+          this.unlockedDresses = Array.isArray(d.unlockedDresses) ? d.unlockedDresses : ['starter'];
+          this.equippedDress = d.equippedDress || 'starter';
+          this.unlockedPowers = Array.isArray(d.unlockedPowers) ? d.unlockedPowers : [];
+          this.dailyStreak = d.dailyStreak || 1;
+          this.lastDailyClaim = d.lastDailyClaim || 0;
+        }
+      } catch(e){}
+
+      // Unlock milestone items up to current level
+      DRESSES_DB.forEach(dress=>{
+        if(this.currentLevel >= dress.level && !this.unlockedDresses.includes(dress.id)){
+          this.unlockedDresses.push(dress.id);
+        }
+      });
+      POWERS_DB.forEach(p=>{
+        if(this.currentLevel >= p.level && !this.unlockedPowers.includes(p.id)){
+          this.unlockedPowers.push(p.id);
+        }
+      });
+    },
+
+    getCurrentMission(){
+      return MISSIONS_DB[this.currentLevel - 1] || MISSIONS_DB[0];
+    },
+
+    startMission(){
+      const m = this.getCurrentMission();
+      this.missionProgress = 0;
+      this.missionTimer = m.timeLimit || 0;
+      this.missionActive = true;
+
+      // Close dashboard and show in-game HUD
+      document.getElementById('progressionDashboard').style.display = 'none';
+      this.updateInGameHUD();
+
+      // Show Waypoint beacon in 3D if present
+      if(m.waypoint){
+        set3DWaypoint(m.waypoint.x, m.waypoint.y, m.waypoint.z, m.waypoint.name);
+      } else {
+        clear3DWaypoint();
+      }
+
+      addChat('System', 'Started: ' + m.title, '#ffd23f');
+    },
+
+    addProgress(amount=1, type='coins'){
+      const m = this.getCurrentMission();
+      if(!this.missionActive && type !== 'coins_pickup') return;
+
+      if(m.type === type || (m.type === 'coins' && type === 'coins_pickup')){
+        this.missionProgress += amount;
+        this.updateInGameHUD();
+        this.renderMissionCard();
+
+        if(this.missionProgress >= m.target){
+          this.completeMission();
+        }
+      }
+    },
+
+    completeMission(){
+      const m = this.getCurrentMission();
+      this.missionActive = false;
+      clear3DWaypoint();
+
+      // Add coins & gems
+      this.coins += m.coinsReward;
+      this.gems += m.gemsReward;
+      if(!this.completedLevels.includes(this.currentLevel)){
+        this.completedLevels.push(this.currentLevel);
+      }
+
+      // Check Unlocks
+      let unlockMsg = '';
+      if(m.dressUnlock){
+        if(!this.unlockedDresses.includes(m.dressUnlock)){
+          this.unlockedDresses.push(m.dressUnlock);
+          const d = DRESSES_DB.find(x => x.id === m.dressUnlock);
+          unlockMsg += '👗 Unlocked Outfit: ' + (d ? d.name : m.dressUnlock) + '! ';
+        }
+      }
+      if(m.powerUnlock){
+        if(!this.unlockedPowers.includes(m.powerUnlock)){
+          this.unlockedPowers.push(m.powerUnlock);
+          const p = POWERS_DB.find(x => x.id === m.powerUnlock);
+          unlockMsg += '⚡ Unlocked Power: ' + (p ? p.name : m.powerUnlock) + '!';
+        }
+      }
+
+      // Trigger Confetti & Sound/Fanfare
+      trigger3DCelebration();
+
+      // Show Victory Modal
+      document.getElementById('vicCoins').textContent = '+' + m.coinsReward;
+      document.getElementById('vicGems').textContent = '+' + m.gemsReward;
+      document.getElementById('vicUnlockHighlight').textContent = unlockMsg;
+      document.getElementById('victorySubtitle').textContent = 'Awesome! Level ' + this.currentLevel + ' completed successfully!';
+      document.getElementById('victoryModal').style.display = 'flex';
+
+      // Save state
+      this.save();
+      this.renderTopBar();
+      this.renderBottomStats();
+    },
+
+    advanceToNextLevel(){
+      document.getElementById('victoryModal').style.display = 'none';
+      if(this.currentLevel < 100){
+        this.currentLevel++;
+      } else {
+        addChat('System', '🎉 YOU ARE THE LEVEL 100 ULTIMATE CHAMPION!', '#ffd23f');
+      }
+      this.save();
+      this.renderTopBar();
+      this.renderMissionCard();
+      this.renderRoadmap();
+      this.renderBottomStats();
+      this.renderPowersHUD();
+      this.startMission();
+    },
+
+    equipDress(dressId){
+      if(!this.unlockedDresses.includes(dressId)) return;
+      this.equippedDress = dressId;
+      this.save();
+      this.applyEquippedDress3D();
+      this.renderWardrobe();
+      const d = DRESSES_DB.find(x => x.id === dressId);
+      addChat('System', 'Equipped outfit: ' + (d ? d.name : dressId), '#34d399');
+    },
+
+    activatePower(powerId){
+      if(!this.unlockedPowers.includes(powerId)) {
+        addChat('System', 'Power locked! Reach higher level to unlock.', '#ef4444');
+        return;
+      }
+      if(this.powerCooldowns[powerId] > 0) return;
+
+      const p = POWERS_DB.find(x => x.id === powerId);
+      if(!p) return;
+
+      this.activePowers[powerId] = p.duration;
+      this.powerCooldowns[powerId] = p.cooldown;
+      this.applyPower3D(powerId, true);
+      addChat('System', '⚡ ' + p.name + ' ACTIVATED!', '#ffd23f');
+
+      // Mission progress check
+      this.addProgress(1, 'use_power');
+    },
+
+    updateTimer(dt){
+      // Count down active mission timer
+      if(this.missionActive && this.missionTimer > 0){
+        this.missionTimer -= dt;
+        if(this.missionTimer <= 0){
+          this.missionTimer = 0;
+          this.missionActive = false;
+          addChat('System', '⏱️ Time expired! Tap [M] to restart mission.', '#ef4444');
+          this.updateInGameHUD();
+        } else {
+          this.updateInGameHUD();
+        }
+      }
+
+      // Count down powers durations & cooldowns
+      Object.keys(this.activePowers).forEach(pid=>{
+        if(this.activePowers[pid] > 0){
+          this.activePowers[pid] -= dt;
+          if(this.activePowers[pid] <= 0){
+            delete this.activePowers[pid];
+            this.applyPower3D(pid, false);
+            addChat('System', pid + ' power wore off.', '#94a3b8');
+          }
+        }
+      });
+      Object.keys(this.powerCooldowns).forEach(pid=>{
+        if(this.powerCooldowns[pid] > 0){
+          this.powerCooldowns[pid] -= dt;
+          if(this.powerCooldowns[pid] <= 0){
+            delete this.powerCooldowns[pid];
+          }
+        }
+      });
+
+      this.updatePowersCooldownUI();
+    },
+
+    // UI Renders
+    renderTopBar(){
+      document.getElementById('progPlayerName').textContent = playerName || 'Shahid Manzar';
+      document.getElementById('progLevelBadge').textContent = '👑 Level ' + this.currentLevel + ' / 100';
+      const pct = Math.min(100, Math.round((this.currentLevel / 100) * 100));
+      document.getElementById('progXpFill').style.width = pct + '%';
+      document.getElementById('progCoinsVal').textContent = this.coins.toLocaleString();
+      document.getElementById('progGemsVal').textContent = this.gems.toLocaleString();
+      document.getElementById('progEnergyVal').textContent = this.energy + '/' + this.maxEnergy;
+
+      // Update legacy pill
+      const coinEl = document.getElementById('coinCount');
+      if(coinEl) coinEl.textContent = this.coins;
+    },
+
+    renderMissionCard(){
+      const m = this.getCurrentMission();
+      document.getElementById('missionLevelBadge').textContent = '⭐ Level ' + m.level + ' / 100';
+      const tierNum = Math.ceil(m.level / 10);
+      document.getElementById('missionCategory').textContent = 'Tier ' + tierNum + ' Challenge';
+      document.getElementById('missionTitle').innerHTML = '<span>🎯</span> ' + m.title;
+      document.getElementById('missionDesc').textContent = m.desc;
+
+      const cur = Math.min(m.target, this.missionProgress);
+      document.getElementById('missionProgressText').textContent = cur + ' / ' + m.target;
+      const pct = Math.min(100, Math.round((cur / m.target) * 100));
+      document.getElementById('missionProgressBar').style.width = pct + '%';
+
+      if(m.timeLimit){
+        document.getElementById('missionTimerWrap').style.display = 'flex';
+        const mins = Math.floor(m.timeLimit / 60);
+        const secs = Math.floor(m.timeLimit % 60);
+        document.getElementById('missionTimerVal').textContent = 
+          String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
+      } else {
+        document.getElementById('missionTimerWrap').style.display = 'none';
+      }
+
+      document.getElementById('missionRewardCoins').textContent = '+' + m.coinsReward;
+      document.getElementById('missionRewardGems').textContent = '+' + m.gemsReward;
+
+      // Next unlock teaser
+      const nextUnlockRow = document.getElementById('missionNextUnlockRow');
+      nextUnlockRow.innerHTML = '';
+      const nextDress = DRESSES_DB.find(d => d.level > this.currentLevel);
+      const nextPower = POWERS_DB.find(p => p.level > this.currentLevel);
+      if(nextDress){
+        const dDiv = document.createElement('div');
+        dDiv.className = 'prog-reward-item';
+        dDiv.style.color = '#ffd23f';
+        dDiv.textContent = '👗 Lvl ' + nextDress.level + ': ' + nextDress.name;
+        nextUnlockRow.appendChild(dDiv);
+      }
+      if(nextPower){
+        const pDiv = document.createElement('div');
+        pDiv.className = 'prog-reward-item';
+        pDiv.style.color = '#38bdf8';
+        pDiv.textContent = '⚡ Lvl ' + nextPower.level + ': ' + nextPower.name;
+        nextUnlockRow.appendChild(pDiv);
+      }
+    },
+
+    renderRoadmap(){
+      const track = document.getElementById('roadmapTrack');
+      track.innerHTML = '';
+
+      // Window of levels around current level
+      const minLvl = Math.max(1, this.currentLevel - 4);
+      const maxLvl = Math.min(100, minLvl + 16);
+
+      for(let l = minLvl; l <= maxLvl; l++){
+        const node = document.createElement('div');
+        node.className = 'prog-node';
+        if(l < this.currentLevel) node.classList.add('completed');
+        else if(l === this.currentLevel) node.classList.add('current');
+        else node.classList.add('locked');
+
+        if(l % 10 === 0 || l === 5 || l === 15 || l === 25) node.classList.add('milestone');
+
+        const circle = document.createElement('div');
+        circle.className = 'prog-node-circle';
+        if(l < this.currentLevel) circle.textContent = '✓';
+        else if(l === this.currentLevel) circle.textContent = '★';
+        else if(l % 10 === 0) circle.textContent = '👑';
+        else circle.textContent = '🔒';
+
+        if(l === this.currentLevel){
+          const tag = document.createElement('div');
+          tag.className = 'current-tag';
+          tag.textContent = 'Current';
+          node.appendChild(tag);
+        }
+
+        const lbl = document.createElement('div');
+        lbl.className = 'prog-node-label';
+        lbl.textContent = 'Lvl ' + l;
+
+        node.appendChild(circle);
+        node.appendChild(lbl);
+        track.appendChild(node);
+
+        if(l < maxLvl){
+          const conn = document.createElement('div');
+          conn.className = 'prog-node-connector' + (l < this.currentLevel ? ' active' : '');
+          track.appendChild(conn);
+        }
+      }
+    },
+
+    renderBottomStats(){
+      const pct = Math.min(100, Math.round((this.currentLevel / 100) * 100));
+      document.getElementById('bottomProgFill').style.width = pct + '%';
+      document.getElementById('bottomProgPct').textContent = pct + '%';
+      document.getElementById('bottomCoins').textContent = this.coins.toLocaleString();
+      document.getElementById('bottomMissionsDone').textContent = (this.currentLevel - 1) + ' / 100';
+    },
+
+    renderPowersHUD(){
+      const p1 = document.getElementById('powerBtn1');
+      const p2 = document.getElementById('powerBtn2');
+      const p3 = document.getElementById('powerBtn3');
+      const p4 = document.getElementById('powerBtn4');
+
+      if(!this.unlockedPowers.includes('speed') && !this.unlockedPowers.includes('fastrun') && !this.unlockedPowers.includes('superspeed')){
+        p1.classList.add('locked');
+      } else p1.classList.remove('locked');
+
+      if(!this.unlockedPowers.includes('jump') && !this.unlockedPowers.includes('doublejump')){
+        p2.classList.add('locked');
+      } else p2.classList.remove('locked');
+
+      if(!this.unlockedPowers.includes('shield') && !this.unlockedPowers.includes('invisible')){
+        p3.classList.add('locked');
+      } else p3.classList.remove('locked');
+
+      if(!this.unlockedPowers.includes('fly') && !this.unlockedPowers.includes('legendary') && !this.unlockedPowers.includes('ultimate')){
+        p4.classList.add('locked');
+      } else p4.classList.remove('locked');
+    },
+
+    updatePowersCooldownUI(){
+      [
+        {btn: 'powerBtn1', cd: 'cdOverlay1', pids: ['superspeed', 'fastrun', 'speed']},
+        {btn: 'powerBtn2', cd: 'cdOverlay2', pids: ['doublejump', 'jump']},
+        {btn: 'powerBtn3', cd: 'cdOverlay3', pids: ['shield', 'invisible']},
+        {btn: 'powerBtn4', cd: 'cdOverlay4', pids: ['ultimate', 'legendary', 'fly']}
+      ].forEach(entry=>{
+        const activePid = entry.pids.find(p => this.activePowers[p] > 0);
+        const cdPid = entry.pids.find(p => this.powerCooldowns[p] > 0);
+        const bEl = document.getElementById(entry.btn);
+        const cdEl = document.getElementById(entry.cd);
+
+        if(bEl){
+          if(activePid) bEl.classList.add('active');
+          else bEl.classList.remove('active');
+        }
+        if(cdEl){
+          if(cdPid && !activePid){
+            cdEl.style.display = 'flex';
+            cdEl.textContent = Math.ceil(this.powerCooldowns[cdPid]);
+          } else {
+            cdEl.style.display = 'none';
+          }
+        }
+      });
+    },
+
+    updateInGameHUD(){
+      const m = this.getCurrentMission();
+      const hudEl = document.getElementById('ingameMissionHUD');
+      hudEl.style.display = 'flex';
+      document.getElementById('hudTaskTitle').textContent = 'Lvl ' + m.level + ': ' + m.title;
+
+      const cur = Math.min(m.target, this.missionProgress);
+      document.getElementById('hudTaskProgress').textContent = cur + ' / ' + m.target + ' completed';
+
+      const timerEl = document.getElementById('hudTimerBadge');
+      if(m.timeLimit && this.missionTimer > 0){
+        timerEl.style.display = 'block';
+        const mins = Math.floor(this.missionTimer / 60);
+        const secs = Math.floor(this.missionTimer % 60);
+        timerEl.textContent = '⏱️ ' + String(mins).padStart(2,'0') + ':' + String(secs).padStart(2,'0');
+      } else {
+        timerEl.style.display = 'none';
+      }
+    },
+
+    renderWardrobe(){
+      const grid = document.getElementById('wardrobeGrid');
+      grid.innerHTML = '';
+      DRESSES_DB.forEach(d=>{
+        const card = document.createElement('div');
+        const unlocked = this.unlockedDresses.includes(d.id);
+        const equipped = this.equippedDress === d.id;
+        card.className = 'wardrobe-card' + (equipped ? ' equipped' : (unlocked ? ' unlocked' : ' locked'));
+        card.innerHTML = 
+          '<div class="w-icon">' + d.icon + '</div>' +
+          '<div class="w-name">' + d.name + '</div>' +
+          '<div class="w-lvl">' + (unlocked ? (equipped ? 'Equipped' : 'Tap to Wear') : ('Unlocks Lvl ' + d.level)) + '</div>';
+
+        if(unlocked){
+          card.onclick = () => this.equipDress(d.id);
+        }
+        grid.appendChild(card);
+      });
+    },
+
+    renderPowersModal(){
+      const list = document.getElementById('powersListContainer');
+      list.innerHTML = '';
+      POWERS_DB.forEach(p=>{
+        const unlocked = this.unlockedPowers.includes(p.id);
+        const div = document.createElement('div');
+        div.style.cssText = 'background:rgba(255,255,255,0.06); border:1px solid ' + (unlocked ? '#38bdf8' : 'rgba(255,255,255,0.1)') + '; border-radius:14px; padding:12px; display:flex; align-items:center; gap:14px; opacity:' + (unlocked ? '1' : '0.5');
+        div.innerHTML = 
+          '<div style="font-size:32px;">' + p.icon + '</div>' +
+          '<div style="flex:1;">' +
+            '<div style="font-weight:800; font-size:15px; color:' + (unlocked ? '#ffd23f' : '#fff') + ';">' + p.name + ' <span style="font-size:11px; color:#94a3b8;">[HotKey: ' + p.key + ']</span></div>' +
+            '<div style="font-size:12px; color:#cbd5e1;">' + p.desc + '</div>' +
+          '</div>' +
+          '<div style="font-weight:800; font-size:13px; color:' + (unlocked ? '#34d399' : '#f87171') + ';">' + (unlocked ? 'UNLOCKED' : ('Lvl ' + p.level)) + '</div>';
+        list.appendChild(div);
+      });
+    },
+
+    renderDailyModal(){
+      const grid = document.getElementById('dailyStreakGrid');
+      grid.innerHTML = '';
+      const dailyRewards = [
+        {day:1, val:'+100 Coins', icon:'🪙'},
+        {day:2, val:'+200 Coins', icon:'🪙'},
+        {day:3, val:'+50 Gems', icon:'💎'},
+        {day:4, val:'+400 Coins', icon:'🪙'},
+        {day:5, val:'+100 Gems', icon:'💎'},
+        {day:6, val:'+800 Coins', icon:'🪙'},
+        {day:7, val:'Mystery Dress!', icon:'🎁'}
+      ];
+      dailyRewards.forEach(r=>{
+        const card = document.createElement('div');
+        card.style.cssText = 'background:rgba(255,255,255,0.06); border:1.5px solid rgba(255,255,255,0.15); border-radius:12px; padding:8px 4px; display:flex; flex-direction:column; align-items:center; gap:4px;';
+        if(r.day === this.dailyStreak) card.style.borderColor = '#ffd23f';
+        card.innerHTML = 
+          '<div style="font-size:11px; color:#94a3b8; font-weight:700;">Day ' + r.day + '</div>' +
+          '<div style="font-size:22px;">' + r.icon + '</div>' +
+          '<div style="font-size:10px; font-weight:800; color:#fff;">' + r.val + '</div>';
+        grid.appendChild(card);
+      });
+    },
+
+    renderAchievementsModal(){
+      const list = document.getElementById('achievementsList');
+      list.innerHTML = '';
+      const achs = [
+        {name:'First Steps', desc:'Complete your first mission', reward:'+500 Coins', done: this.currentLevel > 1},
+        {name:'Speed Demon', desc:'Sprint across the boulevard using Speed Boost', reward:'+50 Gems', done: this.unlockedPowers.includes('speed')},
+        {name:'Beach Royalty', desc:'Unlock the Level 25 Cyber Sunglasses', reward:'+100 Gems', done: this.unlockedDresses.includes('sunglasses')},
+        {name:'Animal Lover', desc:'Visit the puppy, cow, and horse', reward:'+750 Coins', done: this.currentLevel >= 23},
+        {name:'Sky Walker', desc:'Unlock Flying Power at Level 50', reward:'+250 Gems', done: this.unlockedPowers.includes('fly')},
+        {name:'Ultimate Champion', desc:'Conquer Level 100!', reward:'+10,000 Coins', done: this.currentLevel >= 100}
+      ];
+      achs.forEach(a=>{
+        const div = document.createElement('div');
+        div.style.cssText = 'background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); border-radius:14px; padding:10px 14px; display:flex; justify-content:space-between; align-items:center;';
+        div.innerHTML = 
+          '<div>' +
+            '<div style="font-weight:800; font-size:14px; color:#ffd23f;">🏆 ' + a.name + '</div>' +
+            '<div style="font-size:12px; color:#94a3b8;">' + a.desc + '</div>' +
+          '</div>' +
+          '<div style="font-weight:800; font-size:13px; color:' + (a.done ? '#34d399' : '#f59e0b') + ';">' + (a.done ? 'COMPLETED ✓' : a.reward) + '</div>';
+        list.appendChild(div);
+      });
+    },
+
+    renderLeaderboardModal(){
+      const list = document.getElementById('leaderboardList');
+      list.innerHTML = '';
+      const players = [
+        {rank:1, name:'Apex_Legend', level:100, badge:'👑 Champion'},
+        {rank:2, name:'Nova_Speed', level:88, badge:'🌟 Grandmaster'},
+        {rank:3, name:'Pixel_Zed', level:74, badge:'⚡ Master'},
+        {rank:4, name:(playerName || 'You'), level:this.currentLevel, badge:'⭐ Explorer'},
+        {rank:5, name:'Luna_Star', level:28, badge:'✨ Adventurer'}
+      ];
+      players.forEach(p=>{
+        const div = document.createElement('div');
+        div.style.cssText = 'background:rgba(255,255,255,0.06); border-radius:12px; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; font-size:14px;';
+        if(p.name === (playerName || 'You')) div.style.border = '1.5px solid #ffd23f';
+        div.innerHTML = 
+          '<div style="display:flex; align-items:center; gap:12px;">' +
+            '<span style="font-weight:800; color:#ffd23f; width:20px;">#' + p.rank + '</span>' +
+            '<span style="font-weight:700; color:#fff;">' + p.name + '</span>' +
+          '</div>' +
+          '<div style="display:flex; align-items:center; gap:10px;">' +
+            '<span style="color:#38bdf8; font-weight:800;">Lvl ' + p.level + '</span>' +
+            '<span style="font-size:11.5px; color:#a5b4fc;">' + p.badge + '</span>' +
+          '</div>';
+        list.appendChild(div);
+      });
+    },
+
+    setupEventListeners(){
+      // Nav buttons
+      document.getElementById('navHome').onclick = () => {
+        document.getElementById('progressionDashboard').style.display = 'flex';
+      };
+      document.getElementById('navCustomize').onclick = () => {
+        this.renderWardrobe();
+        document.getElementById('wardrobeModal').style.display = 'flex';
+      };
+      document.getElementById('navPowers').onclick = () => {
+        this.renderPowersModal();
+        document.getElementById('powersModal').style.display = 'flex';
+      };
+      document.getElementById('navRewards').onclick = () => {
+        this.renderDailyModal();
+        document.getElementById('dailyRewardModal').style.display = 'flex';
+      };
+      document.getElementById('navFriends').onclick = () => {
+        this.renderLeaderboardModal();
+        document.getElementById('leaderboardModal').style.display = 'flex';
+      };
+      document.getElementById('navLeaderboard').onclick = () => {
+        this.renderLeaderboardModal();
+        document.getElementById('leaderboardModal').style.display = 'flex';
+      };
+
+      // Top action buttons
+      document.getElementById('dailyRewardBtn').onclick = () => {
+        this.renderDailyModal();
+        document.getElementById('dailyRewardModal').style.display = 'flex';
+      };
+      document.getElementById('achievementsBtn').onclick = () => {
+        this.renderAchievementsModal();
+        document.getElementById('achievementsModal').style.display = 'flex';
+      };
+      document.getElementById('closeDashboardBtn').onclick = () => {
+        document.getElementById('progressionDashboard').style.display = 'none';
+      };
+      document.getElementById('hudOpenDashboardBtn').onclick = () => {
+        document.getElementById('progressionDashboard').style.display = 'flex';
+        this.renderMissionCard();
+        this.renderRoadmap();
+      };
+      document.getElementById('startMissionBtn').onclick = () => this.startMission();
+      document.getElementById('vicContinueBtn').onclick = () => this.advanceToNextLevel();
+      document.getElementById('viewLevel100Btn').onclick = () => {
+        document.getElementById('level100CelebrationModal').style.display = 'flex';
+      };
+      document.getElementById('startLevel100FinalBtn').onclick = () => {
+        document.getElementById('level100CelebrationModal').style.display = 'none';
+        this.startMission();
+      };
+
+      // Modal close handlers
+      document.getElementById('closeWardrobeBtn').onclick = () => { document.getElementById('wardrobeModal').style.display = 'none'; };
+      document.getElementById('closePowersBtn').onclick = () => { document.getElementById('powersModal').style.display = 'none'; };
+      document.getElementById('closeDailyBtn').onclick = () => { document.getElementById('dailyRewardModal').style.display = 'none'; };
+      document.getElementById('closeAchievementsBtn').onclick = () => { document.getElementById('achievementsModal').style.display = 'none'; };
+      document.getElementById('closeLeaderboardBtn').onclick = () => { document.getElementById('leaderboardModal').style.display = 'none'; };
+      document.getElementById('closeLevel100Btn').onclick = () => { document.getElementById('level100CelebrationModal').style.display = 'none'; };
+
+      // In-game Power buttons click
+      document.getElementById('powerBtn1').onclick = () => {
+        if(this.unlockedPowers.includes('superspeed')) this.activatePower('superspeed');
+        else if(this.unlockedPowers.includes('fastrun')) this.activatePower('fastrun');
+        else if(this.unlockedPowers.includes('speed')) this.activatePower('speed');
+      };
+      document.getElementById('powerBtn2').onclick = () => {
+        if(this.unlockedPowers.includes('doublejump')) this.activatePower('doublejump');
+        else if(this.unlockedPowers.includes('jump')) this.activatePower('jump');
+      };
+      document.getElementById('powerBtn3').onclick = () => {
+        if(this.unlockedPowers.includes('shield')) this.activatePower('shield');
+        else if(this.unlockedPowers.includes('invisible')) this.activatePower('invisible');
+      };
+      document.getElementById('powerBtn4').onclick = () => {
+        if(this.unlockedPowers.includes('ultimate')) this.activatePower('ultimate');
+        else if(this.unlockedPowers.includes('legendary')) this.activatePower('legendary');
+        else if(this.unlockedPowers.includes('fly')) this.activatePower('fly');
+      };
+
+      // Hotkeys: 1, 2, 3, 4 and M for Map
+      window.addEventListener('keydown', e=>{
+        if(typingInField()) return;
+        if(e.key === 'm' || e.key === 'M'){
+          const dash = document.getElementById('progressionDashboard');
+          dash.style.display = (dash.style.display === 'none') ? 'flex' : 'none';
+          if(dash.style.display === 'flex'){
+            this.renderMissionCard();
+            this.renderRoadmap();
+          }
+        }
+        if(e.key === '1') document.getElementById('powerBtn1').click();
+        if(e.key === '2') document.getElementById('powerBtn2').click();
+        if(e.key === '3') document.getElementById('powerBtn3').click();
+        if(e.key === '4') document.getElementById('powerBtn4').click();
+      });
+
+      // Daily Claim Button
+      document.getElementById('claimDailyBtn').onclick = () => {
+        this.coins += 500;
+        this.gems += 25;
+        this.dailyStreak = (this.dailyStreak % 7) + 1;
+        this.lastDailyClaim = Date.now();
+        this.save();
+        this.renderTopBar();
+        document.getElementById('dailyRewardModal').style.display = 'none';
+        addChat('System', '🎁 Claimed daily login reward! +500 Coins, +25 Gems!', '#ffd23f');
+      };
+
+      // Quick currency adds
+      document.getElementById('addCoinsQuick').onclick = () => {
+        this.coins += 1000; this.save(); this.renderTopBar();
+        addChat('System', 'Added +1,000 Coins!', '#ffd23f');
+      };
+      document.getElementById('addGemsQuick').onclick = () => {
+        this.gems += 100; this.save(); this.renderTopBar();
+        addChat('System', 'Added +100 Gems!', '#38bdf8');
+      };
+      document.getElementById('addEnergyQuick').onclick = () => {
+        this.energy = this.maxEnergy; this.save(); this.renderTopBar();
+        addChat('System', 'Energy fully recharged!', '#4ade80');
+      };
+    },
+
+    // 3D Visual Customization on Player Mesh
+    applyEquippedDress3D(){
+      const dress = DRESSES_DB.find(x => x.id === this.equippedDress) || DRESSES_DB[0];
+      if(!player || !player.userData) return;
+
+      // Update vest/body color
+      if(player.userData.bodyMat){
+        player.userData.bodyMat.color.setHex(dress.color);
+      }
+      if(player.userData.armL && player.userData.armL.material){
+        player.userData.armL.material.color.setHex(dress.color);
+      }
+      if(player.userData.armR && player.userData.armR.material){
+        player.userData.armR.material.color.setHex(dress.color);
+      }
+
+      // Add/Toggle 3D Accessories
+      // Sunglasses
+      if(!player.userData.sunglassesMesh){
+        const sg = new THREE.Mesh(
+          new THREE.BoxGeometry(0.55, 0.16, 0.15),
+          new THREE.MeshStandardMaterial({color:0x0a0d18, metalness:0.8, roughness:0.2})
+        );
+        sg.position.set(0, 1.84, 0.46);
+        player.add(sg);
+        player.userData.sunglassesMesh = sg;
+      }
+      player.userData.sunglassesMesh.visible = (this.equippedDress === 'sunglasses' || this.equippedDress === 'ultimate');
+
+      // Wings (Level 100 Champion & Level 50 Hero)
+      if(!player.userData.wingsMesh){
+        const wg = new THREE.Group();
+        const wingMat = new THREE.MeshStandardMaterial({color:0xffd23f, emissive:0xff9900, emissiveIntensity:0.6, side:THREE.DoubleSide});
+        const wL = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2.2, 4), wingMat);
+        wL.rotation.z = Math.PI * 0.45;
+        wL.rotation.y = -0.3;
+        wL.position.set(-1.1, 1.6, -0.4);
+        const wR = wL.clone();
+        wR.rotation.z = -Math.PI * 0.45;
+        wR.rotation.y = 0.3;
+        wR.position.x = 1.1;
+        wg.add(wL, wR);
+        player.add(wg);
+        player.userData.wingsMesh = wg;
+      }
+      player.userData.wingsMesh.visible = (this.equippedDress === 'ultimate' || this.equippedDress === 'superhero' || this.activePowers['fly']);
+
+      // Halo / Crown for Level 100 Champion
+      if(!player.userData.haloMesh){
+        const halo = new THREE.Mesh(
+          new THREE.TorusGeometry(0.35, 0.05, 8, 24),
+          new THREE.MeshStandardMaterial({color:0xffd23f, emissive:0xffd23f, emissiveIntensity:0.9})
+        );
+        halo.rotation.x = Math.PI/2;
+        halo.position.set(0, 2.45, 0);
+        player.add(halo);
+        player.userData.haloMesh = halo;
+      }
+      player.userData.haloMesh.visible = (this.equippedDress === 'ultimate' || this.equippedDress === 'royal');
+    },
+
+    // 3D Power Visual Effects
+    applyPower3D(powerId, active){
+      if(powerId === 'shield'){
+        if(!player.userData.shieldDome){
+          const sDome = new THREE.Mesh(
+            new THREE.SphereGeometry(1.6, 20, 16),
+            new THREE.MeshStandardMaterial({
+              color: 0x00d4ff,
+              emissive: 0x0099ff,
+              emissiveIntensity: 0.7,
+              transparent: true,
+              opacity: 0.4,
+              wireframe: true
+            })
+          );
+          sDome.position.y = 1.1;
+          player.add(sDome);
+          player.userData.shieldDome = sDome;
+        }
+        player.userData.shieldDome.visible = active;
+      }
+
+      if(powerId === 'fly' || powerId === 'legendary' || powerId === 'ultimate'){
+        if(player.userData.wingsMesh){
+          player.userData.wingsMesh.visible = active || (this.equippedDress === 'ultimate');
+        }
+      }
+
+      if(powerId === 'invisible'){
+        // Make body transparent
+        const op = active ? 0.25 : 1.0;
+        if(player.userData.bodyMat) { player.userData.bodyMat.transparent = active; player.userData.bodyMat.opacity = op; }
+      }
+    }
+  };
+
+  // -------------------------------------------------------------
+  // 5. 3D WAYPOINT BEACON & CELEBRATION EFFECTS
+  // -------------------------------------------------------------
+  let waypointMesh = null;
+  function set3DWaypoint(x, y, z, name){
+    clear3DWaypoint();
+    waypointMesh = new THREE.Group();
+
+    // Glowing vertical light column
+    const col = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.4, 0.4, 30, 16, 1, true),
+      new THREE.MeshBasicMaterial({color:0xffd23f, transparent:true, opacity:0.45, side:THREE.DoubleSide})
+    );
+    col.position.y = 15;
+
+    // Floating rotating diamond
+    const diamond = new THREE.Mesh(
+      new THREE.OctahedronGeometry(1.2, 0),
+      new THREE.MeshStandardMaterial({color:0xff3b77, emissive:0xff1155, emissiveIntensity:0.9})
+    );
+    diamond.position.y = 2.5;
+
+    // Pulsing ground target ring
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(1.2, 1.8, 24),
+      new THREE.MeshBasicMaterial({color:0xffd23f, side:THREE.DoubleSide})
+    );
+    ring.rotation.x = -Math.PI/2;
+    ring.position.y = 0.08;
+
+    waypointMesh.add(col, diamond, ring);
+    waypointMesh.position.set(x, 0, z);
+    scene.add(waypointMesh);
+  }
+
+  function clear3DWaypoint(){
+    if(waypointMesh){
+      scene.remove(waypointMesh);
+      waypointMesh = null;
+    }
+  }
+
+  function checkWaypointReach(playerPos){
+    if(!waypointMesh) return;
+    const dist = Math.hypot(playerPos.x - waypointMesh.position.x, playerPos.z - waypointMesh.position.z);
+    if(dist < 3.2){
+      ProgressionManager.addProgress(1, 'location');
+    }
+  }
+
+  // 3D Celebration Particles
+  const celebrationConfetti = [];
+  function trigger3DCelebration(){
+    const colors = [0xff3b77, 0xffd23f, 0x00d4ff, 0x4ade80, 0xa855f7];
+    for(let i=0; i<60; i++){
+      const c = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.3, 0.3),
+        new THREE.MeshBasicMaterial({color: colors[i % colors.length], side:THREE.DoubleSide})
+      );
+      c.position.set(player.position.x, player.position.y + 1.5, player.position.z);
+      const vel = new THREE.Vector3(
+        (Math.random()-0.5)*8,
+        5 + Math.random()*7,
+        (Math.random()-0.5)*8
+      );
+      scene.add(c);
+      celebrationConfetti.push({mesh:c, vel, life: 3.0});
+    }
+  }
+
+  // ---------- Chibi Pirate Character Factory ----------
+  let sharedFaceTex = null;
+  function getChibiFaceTexture(){
+    if(sharedFaceTex) return sharedFaceTex;
+    const cvs = document.createElement('canvas');
+    cvs.width = 512; cvs.height = 512;
+    const ctx = cvs.getContext('2d');
+    ctx.clearRect(0,0,512,512);
+
+    // Big expressive anime chibi eyes
+    function drawEye(cx, cy, flip){
+      ctx.save();
+      ctx.translate(cx, cy);
+      if(flip) ctx.scale(-1, 1);
+
+      // Sclera (white eye base)
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 48, 64, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Iris gradient - turquoise teal to bright aqua cyan
+      const irisGrad = ctx.createLinearGradient(0, -45, 0, 55);
+      irisGrad.addColorStop(0, '#105668');
+      irisGrad.addColorStop(0.32, '#2192ac');
+      irisGrad.addColorStop(0.72, '#4ec4dc');
+      irisGrad.addColorStop(1, '#9ef2ff');
+
+      ctx.fillStyle = irisGrad;
+      ctx.beginPath();
+      ctx.ellipse(2, 6, 40, 52, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Dark pupil in upper center
+      ctx.fillStyle = '#0b323e';
+      ctx.beginPath();
+      ctx.ellipse(2, -2, 20, 26, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Bright catchlights / highlights
+      // Large top-left highlight
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(-14, -18, 15, 18, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Smaller bottom-right reflection
+      ctx.beginPath();
+      ctx.arc(14, 20, 8, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Secondary star sparkle
+      ctx.beginPath();
+      ctx.arc(-8, 28, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Upper eyelash (thick black curved anime eyeliner)
+      ctx.strokeStyle = '#222026';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(0, -8, 50, Math.PI * 1.05, Math.PI * 1.95);
+      ctx.stroke();
+
+      // Outer lash wing flick
+      ctx.fillStyle = '#222026';
+      ctx.beginPath();
+      ctx.moveTo(38, -30);
+      ctx.quadraticCurveTo(56, -40, 60, -46);
+      ctx.quadraticCurveTo(48, -32, 32, -22);
+      ctx.fill();
+
+      // Lower subtle lash line
+      ctx.strokeStyle = 'rgba(34,32,38,0.4)';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.arc(0, 10, 44, Math.PI * 0.25, Math.PI * 0.75);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    drawEye(168, 235, false);
+    drawEye(344, 235, true);
+
+    // Cute angled brown eyebrows
+    ctx.strokeStyle = '#7c432b';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(125, 142);
+    ctx.quadraticCurveTo(168, 128, 215, 148);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(387, 142);
+    ctx.quadraticCurveTo(344, 128, 297, 148);
+    ctx.stroke();
+
+    // Rosy pink glowing cheek blush
+    function drawBlush(bx, by){
+      const bGrad = ctx.createRadialGradient(bx, by, 4, bx, by, 48);
+      bGrad.addColorStop(0, 'rgba(255, 115, 140, 0.65)');
+      bGrad.addColorStop(0.5, 'rgba(255, 130, 155, 0.35)');
+      bGrad.addColorStop(1, 'rgba(255, 145, 165, 0)');
+      ctx.fillStyle = bGrad;
+      ctx.beginPath();
+      ctx.arc(bx, by, 48, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    drawBlush(128, 308);
+    drawBlush(384, 308);
+
+    // Cute tiny nose (warm soft dot)
+    ctx.fillStyle = '#e8897c';
+    ctx.beginPath();
+    ctx.ellipse(256, 285, 5, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Cute gentle smiling mouth
+    ctx.strokeStyle = '#7d3835';
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(256, 306, 20, Math.PI * 0.15, Math.PI * 0.85);
+    ctx.stroke();
+
+    sharedFaceTex = new THREE.CanvasTexture(cvs);
+    sharedFaceTex.needsUpdate = true;
+    return sharedFaceTex;
+  }
+
+  function makeCharacter(color){
+    const g = new THREE.Group();
+
+    // Materials
+    const skinMat = new THREE.MeshStandardMaterial({color:0xffd1b8, roughness:0.8});
+    const whiteShirtMat = new THREE.MeshStandardMaterial({color:0xf4f6fa, roughness:0.7});
+    const redBandanaMat = new THREE.MeshStandardMaterial({color:0xd2262b, roughness:0.6});
+    const hairMat = new THREE.MeshStandardMaterial({color:0x7d432b, roughness:0.85});
+    const pantsMat = new THREE.MeshStandardMaterial({color:0x2c3340, roughness:0.9});
+    const bootMat = new THREE.MeshStandardMaterial({color:0x683c2c, roughness:0.8});
+    const bootCuffMat = new THREE.MeshStandardMaterial({color:0x784634, roughness:0.75});
+    const bootSoleMat = new THREE.MeshStandardMaterial({color:0x442318, roughness:0.9});
+    const bodyMat = new THREE.MeshStandardMaterial({color: (color !== undefined ? color : 0x2d75b3), roughness:0.65});
+
+    // ----- Head Group -----
+    const headGroup = new THREE.Group();
+    headGroup.position.set(0, 1.82, 0);
+
+    // Head base (peach sphere)
+    const headGeo = new THREE.SphereGeometry(0.50, 28, 20);
+    const head = new THREE.Mesh(headGeo, skinMat);
+    head.scale.set(1.0, 0.98, 0.98);
+    head.castShadow = true;
+    headGroup.add(head);
+
+    // Face decal (curved cylinder patch centered at +Z)
+    const faceGeo = new THREE.CylinderGeometry(0.505, 0.505, 0.70, 24, 1, true, Math.PI - 0.85, 1.70);
+    const faceMat = new THREE.MeshBasicMaterial({map: getChibiFaceTexture(), transparent: true, depthWrite: false});
+    const faceMesh = new THREE.Mesh(faceGeo, faceMat);
+    headGroup.add(faceMesh);
+
+    // Ears
+    const earGeo = new THREE.SphereGeometry(0.11, 14, 10);
+    const earL = new THREE.Mesh(earGeo, skinMat);
+    earL.scale.set(0.35, 1.0, 0.75);
+    earL.position.set(-0.49, 0, 0);
+    const earR = earL.clone();
+    earR.position.x = 0.49;
+    headGroup.add(earL, earR);
+
+    // Hair
+    const hairGroup = new THREE.Group();
+    // Back hair dome
+    const backHairGeo = new THREE.SphereGeometry(0.51, 24, 16, 0, Math.PI * 2, Math.PI * 0.42, Math.PI * 0.45);
+    const backHair = new THREE.Mesh(backHairGeo, hairMat);
+    backHair.position.set(0, -0.02, -0.02);
+    hairGroup.add(backHair);
+
+    // Hair bangs on forehead (sweeping across from sides)
+    const bangGeo = new THREE.ConeGeometry(0.18, 0.45, 6);
+    const bangL = new THREE.Mesh(bangGeo, hairMat);
+    bangL.position.set(-0.20, 0.14, 0.42);
+    bangL.rotation.set(0.42, -0.25, -0.65);
+    bangL.scale.set(1.0, 1.0, 0.55);
+    bangL.castShadow = true;
+
+    const bangR = new THREE.Mesh(bangGeo, hairMat);
+    bangR.position.set(0.20, 0.14, 0.42);
+    bangR.rotation.set(0.42, 0.25, 0.65);
+    bangR.scale.set(1.0, 1.0, 0.55);
+    bangR.castShadow = true;
+
+    // Side hair locks in front of ears
+    const sideHairGeo = new THREE.ConeGeometry(0.12, 0.36, 5);
+    const sideL = new THREE.Mesh(sideHairGeo, hairMat);
+    sideL.position.set(-0.47, -0.05, 0.15);
+    sideL.rotation.set(0.1, 0, 0.18);
+    const sideR = new THREE.Mesh(sideHairGeo, hairMat);
+    sideR.position.set(0.47, -0.05, 0.15);
+    sideR.rotation.set(0.1, 0, -0.18);
+
+    // Back hair fringe under bandana
+    const backFringeGeo = new THREE.CylinderGeometry(0.24, 0.28, 0.24, 14, 1, true, Math.PI * 0.55, Math.PI * 0.9);
+    const backFringe = new THREE.Mesh(backFringeGeo, hairMat);
+    backFringe.position.set(0, -0.24, -0.20);
+
+    hairGroup.add(bangL, bangR, sideL, sideR, backFringe);
+    headGroup.add(hairGroup);
+
+    // Red Bandana / Cap
+    const bandanaGroup = new THREE.Group();
+    bandanaGroup.position.set(0, 0.06, -0.04);
+    bandanaGroup.rotation.x = -0.16;
+
+    // Cap dome
+    const capGeo = new THREE.SphereGeometry(0.53, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.58);
+    const cap = new THREE.Mesh(capGeo, redBandanaMat);
+    cap.castShadow = true;
+
+    // Rolled headband / rim
+    const rimGeo = new THREE.TorusGeometry(0.52, 0.08, 14, 32);
+    const rim = new THREE.Mesh(rimGeo, redBandanaMat);
+    rim.castShadow = true;
+
+    // Bandana knot and hanging tails at back
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.11, 12, 10), redBandanaMat);
+    knot.position.set(-0.30, -0.22, -0.38);
+
+    const tail1 = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.44, 5), redBandanaMat);
+    tail1.position.set(-0.34, -0.42, -0.36);
+    tail1.rotation.set(0.3, 0, 0.4);
+    tail1.scale.set(1.0, 1.0, 0.4);
+
+    const tail2 = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.36, 5), redBandanaMat);
+    tail2.position.set(-0.25, -0.40, -0.40);
+    tail2.rotation.set(-0.1, 0.25, 0.2);
+    tail2.scale.set(1.0, 1.0, 0.4);
+
+    bandanaGroup.add(cap, rim, knot, tail1, tail2);
+    headGroup.add(bandanaGroup);
+
+    g.add(headGroup);
+
+    // ----- Body / Torso -----
+    const body = new THREE.Group();
+
+    // Neck
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.20, 16), skinMat);
+    neck.position.set(0, 1.50, 0);
+    body.add(neck);
+
+    // White Shirt base
+    const shirt = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.40, 0.58, 20), whiteShirtMat);
+    shirt.position.set(0, 1.24, 0);
+    shirt.castShadow = true;
+    body.add(shirt);
+
+    // V-neck skin cutout on chest
+    const chestV = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.28), skinMat);
+    chestV.position.set(0, 1.34, 0.365);
+    chestV.rotation.x = -0.12;
+    body.add(chestV);
+
+    // White shirt collar flaps folded open over vest
+    const collarL = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.26), whiteShirtMat);
+    collarL.position.set(-0.19, 1.44, 0.35);
+    collarL.rotation.set(0.28, 0.35, -0.38);
+    collarL.castShadow = true;
+
+    const collarR = new THREE.Mesh(new THREE.PlaneGeometry(0.24, 0.26), whiteShirtMat);
+    collarR.position.set(0.19, 1.44, 0.35);
+    collarR.rotation.set(0.28, -0.35, 0.38);
+    collarR.castShadow = true;
+
+    body.add(collarL, collarR);
+
+    // Blue Vest (waistcoat) - uses bodyMat so it tints with chosen skin
+    // Back & sides
+    const vestBackGeo = new THREE.CylinderGeometry(0.41, 0.43, 0.54, 20, 1, false, Math.PI * 0.74, Math.PI * 1.52);
+    const vestBack = new THREE.Mesh(vestBackGeo, bodyMat);
+    vestBack.position.set(0, 1.25, 0);
+    vestBack.castShadow = true;
+    body.add(vestBack);
+
+    // Front left vest panel
+    const vestPanelGeo = new THREE.BoxGeometry(0.20, 0.52, 0.08);
+    const vestFrontL = new THREE.Mesh(vestPanelGeo, bodyMat);
+    vestFrontL.position.set(-0.25, 1.24, 0.31);
+    vestFrontL.rotation.set(0, 0.22, 0.04);
+    vestFrontL.castShadow = true;
+
+    // Front right vest panel
+    const vestFrontR = new THREE.Mesh(vestPanelGeo, bodyMat);
+    vestFrontR.position.set(0.25, 1.24, 0.31);
+    vestFrontR.rotation.set(0, -0.22, -0.04);
+    vestFrontR.castShadow = true;
+
+    body.add(vestFrontL, vestFrontR);
+
+    // Red sash around waist
+    const sash = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.41, 0.16, 24), redBandanaMat);
+    sash.position.set(0, 0.95, 0);
+    sash.castShadow = true;
+    const sashKnot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.08), redBandanaMat);
+    sashKnot.position.set(-0.24, 0.93, 0.37);
+    sashKnot.rotation.z = 0.2;
+    body.add(sash, sashKnot);
+
+    // Pants pelvis
+    const pelvis = new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.36, 0.26, 20), pantsMat);
+    pelvis.position.set(0, 0.81, 0);
+    pelvis.castShadow = true;
+    body.add(pelvis);
+
+    g.add(body);
+
+    // ----- Legs & Boots -----
+    function makeLeg(xOffset){
+      const legGroup = new THREE.Group();
+      legGroup.position.set(xOffset, 0.78, 0);
+
+      // Puffy dark trousers
+      const pantsLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.15, 0.36, 16), pantsMat);
+      pantsLeg.position.y = -0.18;
+      pantsLeg.castShadow = true;
+      legGroup.add(pantsLeg);
+
+      // Pirate boot cuff (folded down top)
+      const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.20, 0.14, 16), bootCuffMat);
+      cuff.position.y = -0.34;
+      cuff.castShadow = true;
+      legGroup.add(cuff);
+
+      // Boot shaft
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.18, 0.30, 16), bootMat);
+      shaft.position.y = -0.52;
+      shaft.castShadow = true;
+      legGroup.add(shaft);
+
+      // Boot foot / shoe
+      const foot = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.18, 0.40), bootMat);
+      foot.position.set(0, -0.67, 0.07);
+      foot.castShadow = true;
+      legGroup.add(foot);
+
+      // Boot sole
+      const sole = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.05, 0.42), bootSoleMat);
+      sole.position.set(0, -0.76, 0.07);
+      legGroup.add(sole);
+
+      return legGroup;
+    }
+
+    const legL = makeLeg(-0.18);
+    const legR = makeLeg(0.18);
+    g.add(legL, legR);
+
+    // ----- Arms & Hands -----
+    function makeArm(xOffset, flip){
+      const armGroup = new THREE.Group();
+      armGroup.position.set(xOffset, 1.34, 0);
+
+      // Shoulder cap (vest color)
+      const shoulderCap = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10, 0, Math.PI * 2, 0, Math.PI * 0.5), bodyMat);
+      shoulderCap.rotation.z = flip ? -Math.PI * 0.5 : Math.PI * 0.5;
+      shoulderCap.castShadow = true;
+      armGroup.add(shoulderCap);
+
+      // White puffed sleeve
+      const sleeve = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.18, 0.26, 16), whiteShirtMat);
+      sleeve.position.y = -0.18;
+      sleeve.castShadow = true;
+      armGroup.add(sleeve);
+
+      // Rolled white cuff
+      const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.045, 10, 18), whiteShirtMat);
+      cuff.position.y = -0.30;
+      cuff.rotation.x = Math.PI * 0.5;
+      cuff.castShadow = true;
+      armGroup.add(cuff);
+
+      // Peach forearm
+      const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.10, 0.20, 14), skinMat);
+      forearm.position.y = -0.42;
+      forearm.castShadow = true;
+      armGroup.add(forearm);
+
+      // Chibi hand
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 12), skinMat);
+      hand.position.y = -0.54;
+      hand.scale.set(1.0, 1.15, 1.1);
+      hand.castShadow = true;
+      armGroup.add(hand);
+
+      // Thumb
+      const thumb = new THREE.Mesh(new THREE.SphereGeometry(0.05, 10, 8), skinMat);
+      thumb.position.set(flip ? -0.06 : 0.06, -0.51, 0.05);
+      armGroup.add(thumb);
+
+      // Keep .material alias so shop tinting doesn't error
+      armGroup.material = bodyMat;
+
+      return armGroup;
+    }
+
+    const armL = makeArm(-0.46, false);
+    const armR = makeArm(0.46, true);
+    g.add(armL, armR);
+
+    g.userData = {body, head: headGroup, headGroup, armL, armR, legL, legR, bodyMat};
+    return g;
+  }
+
+  // Name tag sprite
+  function makeNameTag(text, bg){
+    const cvs = document.createElement('canvas'); cvs.width=256; cvs.height=64;
+    const ctx = cvs.getContext('2d');
+    ctx.fillStyle = bg; ctx.globalAlpha=0.85;
+    roundRect(ctx,4,4,248,44,14); ctx.fill();
+    ctx.globalAlpha=1; ctx.fillStyle='#fff'; ctx.font='bold 26px Nunito, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(text,128,28);
+    const tex = new THREE.CanvasTexture(cvs);
+    const mat = new THREE.SpriteMaterial({map:tex, depthTest:false});
+    const spr = new THREE.Sprite(mat);
+    spr.scale.set(1.6,0.4,1);
+    spr.position.y = 2.65;
+    return spr;
+  }
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+
+  // ---------- Player ----------
+  const skins = [
+    {id:'blue', name:'Pirate Blue', color:0x2d75b3, price:0},
+    {id:'coral', name:'Coral', color:0xff6f61, price:0},
+    {id:'mint', name:'Mint', color:0x5fd9a4, price:50},
+    {id:'gold', name:'Gold', color:0xffd23f, price:120},
+    {id:'violet', name:'Violet', color:0x9b7bff, price:120},
+    {id:'sky', name:'Sky', color:0x5fb6ff, price:200},
+    {id:'rose', name:'Rose', color:0xff8fd6, price:200},
+    {id:'ink', name:'Onyx', color:0x2b2f4a, price:300},
+    {id:'ember', name:'Ember', color:0xff4d4d, price:300},
+  ];
+  let ownedSkins = new Set(['blue', 'coral']);
+  let equippedSkin = 'blue';
+
+  const player = makeCharacter(0x2d75b3);
+  player.position.set(0,0,10);
+  scene.add(player);
+  let playerName = 'You';
+  let playerTag = makeNameTag(playerName, '#20233a');
+  player.add(playerTag);
+  function setPlayerName(n){
+    playerName = n || 'Guest';
+    player.remove(playerTag);
+    playerTag = makeNameTag(playerName, '#20233a');
+    player.add(playerTag);
+  }
+
+  let coins = 40;
+  const coinCountEl = document.getElementById('coinCount');
+  function setCoins(n){ coins = Math.max(0,n); coinCountEl.textContent = coins; }
+  setCoins(coins);
+
+  // ---------- Gems (collectibles) ----------
+  const gems = [];
+  const gemGeo = new THREE.OctahedronGeometry(0.35,0);
+  const gemMat = new THREE.MeshStandardMaterial({color:0x5fd9a4, emissive:0x1a5c3f, metalness:0.3, roughness:0.2});
+
+  const gemSpawnPoints = [
+    // City Boulevard & Sidewalks (Image 1)
+    [-18, 10.5], [-35, 10.5], [-55, 10.5], [-72, 10.5],
+    [-18, -10.5], [-35, -10.5], [-55, -10.5], [-72, -10.5],
+    [-40, 18], [-40, -28],
+    // Tropical Beach & Wooden Pier (Image 2)
+    [-42, 52], [-42, 62], [-42, 72], [-37, 68],
+    [-52, 42], [-35, 46], [-15, 42], [-66, 48],
+    [-50, 72], [-20, 75],
+    // Farm Pasture & Meadow (Image 3)
+    [32, -8], [36, -25], [48, -10], [52, -45],
+    [62, -15], [65, -30], [25, 5], [45, 12]
+  ];
+
+  function spawnGem(){
+    const m = new THREE.Mesh(gemGeo, gemMat);
+    const pt = gemSpawnPoints[Math.floor(Math.random()*gemSpawnPoints.length)];
+    const x = pt[0] + (Math.random()-0.5)*3.0;
+    const z = pt[1] + (Math.random()-0.5)*3.0;
+    m.position.set(x, 0.9, z);
+    m.castShadow = true;
+    scene.add(m);
+    gems.push(m);
+  }
+  for(let i=0;i<24;i++) spawnGem();
+
+  // ---------- Bots (simulated other players — used only in offline demo mode) ----------
+  const botNames = ['Nova','Pixel_Zed','LunaB','Kayo','Rusty99','Miko'];
+  const botColors = [0x5fb6ff,0xff8fd6,0xffd23f,0x9b7bff,0xff4d4d,0x8a5a34];
+  const bots = [];
+  const botChatLines = ['gg!','anyone want to trade?','nice skin 🔥','race you to the trees','brb grabbing gems','this map is fun'];
+  function spawnBots(){
+    for(let i=0;i<6;i++){
+      const b = makeCharacter(botColors[i]);
+      b.position.set((Math.random()-0.5)*40, 0, (Math.random()-0.5)*80);
+      const tag = makeNameTag(botNames[i], '#2b2f4a');
+      b.add(tag);
+      scene.add(b);
+      bots.push({mesh:b, name:botNames[i], target:new THREE.Vector3(b.position.x,0,b.position.z), timer:0, speak:2+Math.random()*8});
+    }
+    document.getElementById('playerCount').textContent = bots.length + 1;
+  }
+  function clearBots(){
+    bots.forEach(b=> scene.remove(b.mesh));
+    bots.length = 0;
+  }
+
+  // ---------- Real multiplayer (Socket.io) ----------
+  let socket = null;
+  const remotePlayers = new Map(); // id -> {mesh, tag, target:Vector3, targetRotY}
+  let netTimer = 0;
+
+  function addRemotePlayer(id, data){
+    if(remotePlayers.has(id)) return;
+    const mesh = makeCharacter(data.color || 0x5fb6ff);
+    mesh.position.set(data.x||0, 0, data.z||0);
+    const tag = makeNameTag(data.name || 'Player', '#2b2f4a');
+    mesh.add(tag);
+    scene.add(mesh);
+    remotePlayers.set(id, {mesh, tag, target:new THREE.Vector3(data.x||0,0,data.z||0), targetRotY:0});
+    updatePlayerCount();
+  }
+  function removeRemotePlayer(id){
+    const rp = remotePlayers.get(id);
+    if(!rp) return;
+    scene.remove(rp.mesh);
+    remotePlayers.delete(id);
+    updatePlayerCount();
+  }
+  function updatePlayerCount(){
+    const n = socket && socket.connected ? remotePlayers.size + 1 : bots.length + 1;
+    document.getElementById('playerCount').textContent = n;
+  }
+
+  function connectToServer(url){
+    if(typeof io === 'undefined'){
+      document.getElementById('connStatus').textContent = "Couldn't load multiplayer library — check your connection.";
+      return;
+    }
+    document.getElementById('connStatus').textContent = 'Connecting to '+url+' …';
+    try{
+      socket = io(url, {transports:['websocket','polling'], timeout:6000});
+    }catch(err){
+      document.getElementById('connStatus').textContent = 'Could not connect: '+err.message;
+      return;
+    }
+
+    socket.on('connect', ()=>{
+      clearBots();
+      const skinDef = skins.find(s=>s.id===equippedSkin);
+      socket.emit('join', {name:playerName, color: skinDef ? skinDef.color : 0xff6f61, x:player.position.x, z:player.position.z});
+      addChat('System', 'Connected to server — real multiplayer is live!', '#5fd9a4');
+    });
+
+    socket.on('state', (players)=>{
+      Object.keys(players).forEach(id=>{
+        if(id === socket.id) return;
+        addRemotePlayer(id, players[id]);
+        if(typeof SimplePeer !== 'undefined') {
+          createPeer(id, true);
+        }
+      });
+      updatePlayerCount();
+    });
+
+    socket.on('playerJoined', (p)=>{
+      addRemotePlayer(p.id, p);
+      addChat('System', p.name+' joined the game', '#5fd9a4');
+    });
+
+    socket.on('signal', (data) => {
+      if (typeof SimplePeer === 'undefined') return;
+      let peer = peers[data.from];
+      if (!peer) {
+        peer = createPeer(data.from, false);
+      }
+      peer.signal(data.signal);
+    });
+
+    socket.on('playerMoved', (p)=>{
+      const rp = remotePlayers.get(p.id);
+      if(rp){ rp.target.set(p.x, 0, p.z); rp.targetRotY = p.ry; }
+    });
+
+    socket.on('chat', (msg)=>{
+      addChat(msg.name, msg.text, '#9b7bff');
+      const rp = remotePlayers.get(msg.id);
+      if(rp) bubble(rp.mesh, msg.text);
+    });
+
+    socket.on('playerLeft', (p)=>{
+      addChat('System', (p.name||'Someone')+' left the game', '#ff6f61');
+      removeRemotePlayer(p.id);
+      if (peers[p.id]) {
+        peers[p.id].destroy();
+        delete peers[p.id];
+      }
+      const vid = document.getElementById('vid-'+p.id);
+      if (vid) vid.remove();
+    });
+
+    socket.on('connect_error', (err)=>{
+      document.getElementById('connStatus').textContent = 'Connection failed — falling back to offline demo.';
+      if(bots.length===0) spawnBots();
+    });
+  }
+
+  // ---------- WebRTC (Voice & Video) ----------
+  let localStream = null;
+  const peers = {};
+  const videosWrap = document.getElementById('videosWrap');
+  let micEnabled = false;
+  let camEnabled = false;
+
+  async function updateLocalStream() {
+    if (!micEnabled && !camEnabled) {
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+        localStream = null;
+      }
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: camEnabled, 
+        audio: micEnabled 
+      });
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+      }
+      localStream = stream;
+      
+      // Update existing peers
+      Object.values(peers).forEach(peer => {
+        if (!peer.destroyed) {
+          if (peer.streams[0]) {
+            peer.removeStream(peer.streams[0]);
+          }
+          peer.addStream(localStream);
+        }
+      });
+    } catch (err) {
+      addChat('System', 'Camera/Mic access denied.', '#ff6f61');
+      micEnabled = false;
+      camEnabled = false;
+      document.getElementById('micBtn').style.background = '#ff4d4d';
+      document.getElementById('camBtn').style.background = '#ff4d4d';
+    }
+  }
+
+  document.getElementById('micBtn').onclick = () => {
+    micEnabled = !micEnabled;
+    document.getElementById('micBtn').style.background = micEnabled ? '#5fd9a4' : '#ff4d4d';
+    updateLocalStream();
+  };
+
+  document.getElementById('camBtn').onclick = () => {
+    camEnabled = !camEnabled;
+    document.getElementById('camBtn').style.background = camEnabled ? '#5fd9a4' : '#ff4d4d';
+    updateLocalStream();
+  };
+
+  function createPeer(id, initiator) {
+    const peer = new SimplePeer({
+      initiator: initiator,
+      stream: localStream || undefined,
+      trickle: false
+    });
+
+    peer.on('signal', data => {
+      if (socket && socket.connected) {
+        socket.emit('signal', { to: id, signal: data });
+      }
+    });
+
+    peer.on('stream', stream => {
+      let vid = document.getElementById('vid-'+id);
+      if (!vid) {
+        vid = document.createElement('video');
+        vid.id = 'vid-'+id;
+        vid.autoplay = true;
+        vid.playsInline = true;
+        videosWrap.appendChild(vid);
+      }
+      vid.srcObject = stream;
+    });
+
+    peer.on('close', () => {
+      const vid = document.getElementById('vid-'+id);
+      if (vid) vid.remove();
+      delete peers[id];
+    });
+
+    peers[id] = peer;
+    return peer;
+  }
+
+  // ---------- Chat ----------
+  const chatLog = document.getElementById('chatLog');
+  function addChat(name, msg, color){
+    const line = document.createElement('div');
+    line.className = 'chatLine';
+    line.innerHTML = '<b style="color:'+(color||'#ffd23f')+'">'+name+':</b> '+escapeHtml(msg);
+    chatLog.appendChild(line);
+    chatLog.scrollTop = chatLog.scrollHeight;
+    while(chatLog.children.length > 40) chatLog.removeChild(chatLog.firstChild);
+  }
+  function escapeHtml(s){ const d=document.createElement('div'); d.innerText=s; return d.innerHTML; }
+  function bubble(mesh, text){
+    const cvs = document.createElement('canvas'); cvs.width=300; cvs.height=90;
+    const ctx = cvs.getContext('2d');
+    ctx.fillStyle='#fff'; roundRect(ctx,6,6,288,60,16); ctx.fill();
+    ctx.fillStyle='#20233a'; ctx.font='bold 24px Nunito, sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    let t = text.length>26? text.slice(0,26)+'…' : text;
+    ctx.fillText(t,150,36);
+    const tex = new THREE.CanvasTexture(cvs);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, depthTest:false}));
+    spr.scale.set(1.8,0.55,1);
+    spr.position.y = 3.20;
+    mesh.add(spr);
+    setTimeout(()=>{ mesh.remove(spr); }, 3500);
+  }
+  document.getElementById('chatSend').onclick = sendChat;
+  document.getElementById('chatInput').addEventListener('keydown', e=>{ if(e.key==='Enter') sendChat(); });
+  function sendChat(){
+    const el = document.getElementById('chatInput');
+    const val = el.value.trim();
+    if(!val) return;
+    addChat('You', val, '#ff6f61');
+    bubble(player, val);
+    if(socket && socket.connected){ socket.emit('chat', {text:val}); }
+    el.value='';
+  }
+
+  // occasional bot chatter (offline demo only)
+  setInterval(()=>{
+    if(bots.length && !(socket && socket.connected) && Math.random()<0.5){
+      const b = bots[Math.floor(Math.random()*bots.length)];
+      const line = botChatLines[Math.floor(Math.random()*botChatLines.length)];
+      addChat(b.name, line, '#9b7bff');
+      bubble(b.mesh, line);
+    }
+  }, 5000);
+
+  // ---------- Shop ----------
+  const skinGrid = document.getElementById('skinGrid');
+  function renderShop(){
+    skinGrid.innerHTML = '';
+    skins.forEach(s=>{
+      const card = document.createElement('div');
+      card.className = 'skinCard' + (ownedSkins.has(s.id)?' owned':'') + (equippedSkin===s.id?' selected':'');
+      card.innerHTML = '<div class="swatch" style="background:#'+s.color.toString(16).padStart(6,'0')+'"></div>'+
+        '<div style="color:#f4f2ff;font-weight:700;font-size:13px;">'+s.name+'</div>'+
+        '<div class="price">'+(ownedSkins.has(s.id) ? (equippedSkin===s.id?'Equipped':'Owned — tap to wear') : ('💰 '+s.price))+'</div>';
+      card.onclick = ()=>{
+        if(ownedSkins.has(s.id)){
+          equippedSkin = s.id;
+          player.userData.bodyMat.color.setHex(s.color);
+          player.userData.armL.material.color.setHex(s.color);
+          player.userData.armR.material.color.setHex(s.color);
+        } else if(coins >= s.price){
+          setCoins(coins - s.price);
+          ownedSkins.add(s.id);
+          equippedSkin = s.id;
+          player.userData.bodyMat.color.setHex(s.color);
+          player.userData.armL.material.color.setHex(s.color);
+          player.userData.armR.material.color.setHex(s.color);
+          addChat('System', 'You unlocked '+s.name+'!', '#5fd9a4');
+        } else {
+          addChat('System', 'Not enough coins for '+s.name+'.', '#ff6f61');
+        }
+        renderShop();
+      };
+      skinGrid.appendChild(card);
+    });
+  }
+  renderShop();
+  const modalOverlay = document.getElementById('modalOverlay');
+  document.getElementById('shopBtn').onclick = ()=>{ modalOverlay.style.display='flex'; };
+  document.getElementById('closeShop').onclick = ()=>{ modalOverlay.style.display='none'; };
+  modalOverlay.onclick = (e)=>{ if(e.target===modalOverlay) modalOverlay.style.display='none'; };
+
+  // ---------- Controls ----------
+  const keys = {};
+  function typingInField(){
+    const el = document.activeElement;
+    return el && (el.tagName==='INPUT' || el.tagName==='TEXTAREA');
+  }
+  window.addEventListener('keydown', e=>{
+    if(typingInField()) return;
+    keys[e.key.toLowerCase()] = true;
+    if(e.code==='Space') jump();
+  });
+  window.addEventListener('keyup', e=>{ if(!typingInField()) keys[e.key.toLowerCase()] = false; });
+
+  let yaw = 0, pitch = 0.35;
+  let dragging = false, lastX=0, lastY=0;
+  renderer.domElement.addEventListener('pointerdown', e=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; });
+  window.addEventListener('pointerup', ()=>{ dragging=false; });
+  window.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    yaw -= (e.clientX-lastX)*0.005;
+    pitch = Math.max(0.1, Math.min(1.1, pitch - (e.clientY-lastY)*0.004));
+    lastX=e.clientX; lastY=e.clientY;
+  });
+
+  let velY = 0, grounded = true, canDoubleJump = false;
+  function jump(){
+    const isSuperJump = ProgressionManager.activePowers['jump'] > 0;
+    const isDoubleJumpUnlocked = ProgressionManager.unlockedPowers.includes('doublejump') || ProgressionManager.activePowers['doublejump'] > 0;
+    
+    if(grounded){
+      velY = isSuperJump ? 11.5 : 6.2;
+      grounded = false;
+      canDoubleJump = isDoubleJumpUnlocked;
+      ProgressionManager.addProgress(1, 'jumps');
+    } else if(canDoubleJump){
+      velY = 9.5;
+      canDoubleJump = false;
+      ProgressionManager.addProgress(1, 'jumps');
+      trigger3DCelebration();
+    }
+  }
+  document.getElementById('jumpBtnDesktop').onclick = jump;
+  document.getElementById('jumpBtnMobile').addEventListener('touchstart', e=>{ e.preventDefault(); jump(); });
+
+  // Mobile joystick
+  let joyVec = {x:0,y:0};
+  const joyBase = document.getElementById('joyBase'), joyStick = document.getElementById('joyStick'), joyZone = document.getElementById('joystickZone');
+  let joyActive=false, joyOrigin={x:0,y:0};
+  joyZone.addEventListener('touchstart', e=>{
+    const t = e.changedTouches[0];
+    joyActive = true; joyOrigin = {x:t.clientX,y:t.clientY};
+    joyBase.style.left=(t.clientX-50)+'px'; joyBase.style.top=(t.clientY-50)+'px';
+    joyStick.style.left=(t.clientX-23)+'px'; joyStick.style.top=(t.clientY-23)+'px';
+    joyBase.style.display='block'; joyStick.style.display='block';
+  });
+  joyZone.addEventListener('touchmove', e=>{
+    if(!joyActive) return;
+    const t = e.changedTouches[0];
+    let dx = t.clientX-joyOrigin.x, dy = t.clientY-joyOrigin.y;
+    const max = 50; const dist = Math.min(max, Math.hypot(dx,dy));
+    const ang = Math.atan2(dy,dx);
+    dx = Math.cos(ang)*dist; dy = Math.sin(ang)*dist;
+    joyStick.style.left=(joyOrigin.x+dx-23)+'px'; joyStick.style.top=(joyOrigin.y+dy-23)+'px';
+    joyVec = {x:dx/max, y:dy/max};
+  });
+  joyZone.addEventListener('touchend', ()=>{ joyActive=false; joyVec={x:0,y:0}; joyBase.style.display='none'; joyStick.style.display='none'; });
+
+  const lookZone = document.getElementById('lookZone');
+  let lookActive=false, lookLast={x:0,y:0};
+  lookZone.addEventListener('touchstart', e=>{ lookActive=true; const t=e.changedTouches[0]; lookLast={x:t.clientX,y:t.clientY}; });
+  lookZone.addEventListener('touchmove', e=>{
+    if(!lookActive) return;
+    const t = e.changedTouches[0];
+    yaw -= (t.clientX-lookLast.x)*0.006;
+    pitch = Math.max(0.1, Math.min(1.1, pitch - (t.clientY-lookLast.y)*0.005));
+    lookLast = {x:t.clientX,y:t.clientY};
+  });
+  lookZone.addEventListener('touchend', ()=>{ lookActive=false; });
+
+  // ---------- Animate limbs ----------
+  function animateWalk(char, t, moving){
+    const amp = moving ? 0.55 : 0;
+    char.userData.armL.rotation.x = Math.sin(t*8)*amp;
+    char.userData.armR.rotation.x = -Math.sin(t*8)*amp;
+    char.userData.legL.rotation.x = -Math.sin(t*8)*amp;
+    char.userData.legR.rotation.x = Math.sin(t*8)*amp;
+    if(char.userData.headGroup){
+      char.userData.headGroup.position.y = 1.82 + (moving ? Math.abs(Math.sin(t*8))*0.03 : Math.sin(t*2)*0.015);
+    }
+  }
+
+  // ---------- Main loop ----------
+  const clock = new THREE.Clock();
+  let walkT = 0;
+  function loop(){
+    requestAnimationFrame(loop);
+    const dt = Math.min(0.05, clock.getDelta());
+
+    // movement input
+    let mx=0, mz=0;
+    if(keys['w']||keys['arrowup']) mz -= 1;
+    if(keys['s']||keys['arrowdown']) mz += 1;
+    if(keys['a']||keys['arrowleft']) mx -= 1;
+    if(keys['d']||keys['arrowright']) mx += 1;
+    mx += joyVec.x; mz += joyVec.y;
+    const inputLen = Math.hypot(mx,mz);
+    let moving = inputLen > 0.05;
+    if(moving){
+      mx/=inputLen; mz/=inputLen;
+      const cy = Math.cos(yaw), sy = Math.sin(yaw);
+      const worldX = mx*cy - mz*sy;
+      const worldZ = mx*sy + mz*cy;
+      let speed = 6.5;
+      if(ProgressionManager.activePowers['superspeed'] > 0) speed = 15.0;
+      else if(ProgressionManager.activePowers['fastrun'] > 0) speed = 11.0;
+      else if(ProgressionManager.activePowers['speed'] > 0) speed = 10.0;
+      player.position.x += worldX*speed*dt;
+      player.position.z += worldZ*speed*dt;
+      player.rotation.y = Math.atan2(worldX, worldZ);
+      walkT += dt;
+    }
+    animateWalk(player, walkT, moving);
+
+    // gravity/jump or flying power
+    if(ProgressionManager.activePowers['fly'] > 0 || ProgressionManager.activePowers['legendary'] > 0 || ProgressionManager.activePowers['ultimate'] > 0){
+      velY = 0;
+      if(keys[' ']) player.position.y += 8.5 * dt;
+      else if(keys['shift']) player.position.y = Math.max(0, player.position.y - 8.5 * dt);
+      else player.position.y = Math.max(0.4, player.position.y + Math.sin(performance.now()*0.003)*0.015);
+      grounded = true;
+    } else {
+      velY -= 16*dt;
+      player.position.y += velY*dt;
+      if(player.position.y <= 0){ player.position.y = 0; velY = 0; grounded = true; }
+    }
+
+    // clamp to world bounds
+    player.position.x = Math.max(-90, Math.min(90, player.position.x));
+    player.position.z = Math.max(-140, Math.min(140, player.position.z));
+
+    // camera follow (third person orbit)
+    const dist = 7.5;
+    const camX = player.position.x + Math.sin(yaw)*dist*Math.cos(pitch);
+    const camZ = player.position.z + Math.cos(yaw)*dist*Math.cos(pitch);
+    const camY = player.position.y + 2 + dist*Math.sin(pitch);
+    camera.position.set(camX,camY,camZ);
+    camera.lookAt(player.position.x, player.position.y+1.4, player.position.z);
+
+    // bots wander (offline demo only)
+    if(!(socket && socket.connected)){
+      bots.forEach(b=>{
+        b.timer -= dt;
+        if(b.timer<=0){
+          b.target.set((Math.random()-0.5)*60,0,(Math.random()-0.5)*220);
+          b.timer = 3+Math.random()*4;
+        }
+        const dx = b.target.x-b.mesh.position.x, dz = b.target.z-b.mesh.position.z;
+        const d = Math.hypot(dx,dz);
+        const botMoving = d>0.3;
+        if(botMoving){
+          const spd = 2.2;
+          b.mesh.position.x += (dx/d)*spd*dt;
+          b.mesh.position.z += (dz/d)*spd*dt;
+          b.mesh.rotation.y = Math.atan2(dx,dz);
+        }
+        animateWalk(b.mesh, walkT+b.timer, botMoving);
+      });
+    } else {
+      // real players: smooth-follow the last known network position
+      remotePlayers.forEach(rp=>{
+        const before = rp.mesh.position.clone();
+        rp.mesh.position.lerp(rp.target, 0.2);
+        const moved = rp.mesh.position.distanceTo(before) > 0.005;
+        rp.mesh.rotation.y = rp.targetRotY || rp.mesh.rotation.y;
+        animateWalk(rp.mesh, walkT, moved);
+      });
+      // broadcast our own position ~10x/sec
+      netTimer += dt;
+      if(netTimer > 0.1){
+        netTimer = 0;
+        socket.emit('move', {x:player.position.x, z:player.position.z, ry:player.rotation.y});
+      }
+    }
+
+    // gems rotate + collect
+    for(let i=gems.length-1;i>=0;i--){
+      const g = gems[i];
+      g.rotation.y += dt*1.5;
+      g.position.y = 0.9 + Math.sin(performance.now()*0.003 + i)*0.1;
+      if(g.position.distanceTo(player.position) < 1.1){
+        scene.remove(g);
+        gems.splice(i,1);
+        setCoins(coins+5);
+        ProgressionManager.coins += 5;
+        ProgressionManager.addProgress(1, 'coins_pickup');
+        ProgressionManager.renderTopBar();
+        spawnGem();
+      }
+    }
+
+    // Animated City Cars (Image 1)
+    animatedCars.forEach(car=>{
+      car.mesh.position[car.axis] += car.speed * car.dir * dt;
+      // Wheel rotation
+      const wRot = (car.speed * car.dir * dt) / 0.4;
+      car.wheels.forEach(w=>{
+        if(w.children && w.children[0]) w.children[0].rotation.x += wRot;
+        else w.rotation.x += wRot;
+      });
+      // Turn around at ends of street
+      if(car.mesh.position[car.axis] > car.maxX){
+        car.dir = -1;
+        car.mesh.rotation.y = -Math.PI/2;
+      } else if(car.mesh.position[car.axis] < car.minX){
+        car.dir = 1;
+        car.mesh.rotation.y = Math.PI/2;
+      }
+    });
+
+    // Animated Ocean Waves & Floating Swim Rings (Image 2)
+    if(oceanWaterMesh && oceanWaterMesh.geometry.attributes.position){
+      const tNow = performance.now() * 0.002;
+      const posAttr = oceanWaterMesh.geometry.attributes.position;
+      for(let i=0; i<posAttr.count; i++){
+        const u = posAttr.getX(i);
+        const v = posAttr.getY(i);
+        posAttr.setZ(i, Math.sin(tNow * 1.6 + u * 0.12 + v * 0.1) * 0.15);
+      }
+      posAttr.needsUpdate = true;
+    }
+    animatedSwimRings.forEach(sr=>{
+      const tNow = performance.now() * 0.0025 + sr.phase;
+      sr.mesh.position.y = 0.15 + Math.sin(tNow) * 0.12;
+      sr.mesh.rotation.z = Math.sin(tNow * 0.8) * 0.1;
+    });
+
+    // Animated Pet Puppy (Follows Player! - Image 3)
+    if(petCompanion){
+      const pMesh = petCompanion.mesh;
+      const targetPos = player.position.clone();
+      const pDist = pMesh.position.distanceTo(targetPos);
+      const isRunning = pDist > 2.2;
+      if(isRunning){
+        const pDir = targetPos.clone().sub(pMesh.position).normalize();
+        const pSpeed = Math.min(8.0, Math.max(3.5, pDist * 2.2));
+        pMesh.position.addScaledVector(pDir, pSpeed * dt);
+        pMesh.rotation.y = Math.atan2(pDir.x, pDir.z);
+        petCompanion.walkT += dt * 12;
+        // Paws trotting
+        petCompanion.paws[0].position.z = -0.25 + Math.sin(petCompanion.walkT) * 0.14;
+        petCompanion.paws[1].position.z = -0.25 - Math.sin(petCompanion.walkT) * 0.14;
+        petCompanion.paws[2].position.z = 0.25 - Math.sin(petCompanion.walkT) * 0.14;
+        petCompanion.paws[3].position.z = 0.25 + Math.sin(petCompanion.walkT) * 0.14;
+      } else {
+        // Idle: turn towards player
+        const toPlayer = targetPos.clone().sub(pMesh.position);
+        if(toPlayer.length() > 0.1){
+          pMesh.rotation.y = THREE.MathUtils.lerp(pMesh.rotation.y, Math.atan2(toPlayer.x, toPlayer.z), 0.08);
+        }
+      }
+      // Tail wagging
+      petCompanion.tail.rotation.y = Math.sin(performance.now() * 0.014) * 0.45;
+      // Head tilt
+      petCompanion.head.rotation.z = Math.sin(performance.now() * 0.002) * 0.08;
+    }
+
+    // Animated Farm Animals (Image 3)
+    animatedAnimals.forEach(a=>{
+      a.timer += dt;
+      if(a.type === 'cow' || a.type === 'sheep'){
+        a.head.rotation.x = Math.sin(a.timer * 2.2) * 0.12;
+        a.head.rotation.y = Math.sin(a.timer * 1.1) * 0.15;
+      } else if(a.type === 'chicken'){
+        a.mesh.rotation.x = Math.max(0, Math.sin(a.timer * 4.5)) * 0.4;
+      }
+    });
+
+    // Progression & Powers updates
+    ProgressionManager.updateTimer(dt);
+    checkWaypointReach(player.position);
+
+    // Animate 3D Waypoint
+    if(waypointMesh){
+      waypointMesh.children[1].rotation.y += dt * 2.0;
+      waypointMesh.children[1].position.y = 2.5 + Math.sin(performance.now()*0.003)*0.3;
+      waypointMesh.children[2].rotation.z += dt * 1.5;
+    }
+
+    // Animate Confetti Particles
+    for(let i=celebrationConfetti.length-1; i>=0; i--){
+      const cf = celebrationConfetti[i];
+      cf.life -= dt;
+      cf.mesh.position.addScaledVector(cf.vel, dt);
+      cf.vel.y -= 9.8 * dt;
+      cf.mesh.rotation.x += dt * 5;
+      cf.mesh.rotation.y += dt * 3;
+      if(cf.life <= 0){
+        scene.remove(cf.mesh);
+        celebrationConfetti.splice(i, 1);
+      }
+    }
+
+    // Check puppy proximity for mission
+    if(petCompanion && player.position.distanceTo(petCompanion.mesh.position) < 1.6){
+      ProgressionManager.addProgress(1, 'pet_puppy');
+    }
+
+    // sky tint by time-of-day style drift (subtle ambient life)
+    renderer.render(scene, camera);
+  }
+  loop();
+
+  // Initialize Progression System
+  ProgressionManager.init();
+
+  // reveal footnote after a moment (non-intrusive)
+  setTimeout(()=>{ document.getElementById('footNote').style.display='block'; }, 4000);
+
+  // ---------- Login screen ----------
+  const avatarRow = document.getElementById('avatarRow');
+  const starterSkins = skins.slice(0,4); // blue, coral, mint, gold
+  let pickedSkinId = 'blue';
+  starterSkins.forEach(s=>{
+    const dot = document.createElement('div');
+    dot.className = 'avatarSwatch' + (s.id===pickedSkinId ? ' picked' : '');
+    dot.style.background = '#'+s.color.toString(16).padStart(6,'0');
+    dot.onclick = ()=>{
+      pickedSkinId = s.id;
+      [...avatarRow.children].forEach(c=>c.classList.remove('picked'));
+      dot.classList.add('picked');
+    };
+    avatarRow.appendChild(dot);
+  });
+
+  document.getElementById('playBtn').onclick = ()=>{
+    const nameVal = document.getElementById('nameInput').value.trim();
+    const serverVal = document.getElementById('serverInput').value.trim();
+
+    setPlayerName(nameVal || 'Guest'+Math.floor(Math.random()*900+100));
+    const chosen = skins.find(s=>s.id===pickedSkinId);
+    equippedSkin = chosen.id;
+    ownedSkins.add(chosen.id);
+    player.userData.bodyMat.color.setHex(chosen.color);
+    player.userData.armL.material.color.setHex(chosen.color);
+    player.userData.armR.material.color.setHex(chosen.color);
+    renderShop();
+
+    document.getElementById('loginOverlay').style.display = 'none';
+    addChat('System', 'Welcome, '+playerName+'! Say hi 👋', '#5fd9a4');
+
+    if(serverVal){
+      connectToServer(serverVal);
+    } else {
+      spawnBots();
+    }
+  };
+})();
+</script>
+</body>
+</html>
